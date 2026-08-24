@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase, MenuItem } from "@/lib/supabaseClient";
+   import { supabase, MenuItem } from "../lib/supabaseClient";
 
 type CartLine = {
   item: MenuItem;
