@@ -1,18 +1,23 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-   import { supabase, MenuItem } from "../lib/supabaseClient";
+import { supabase, MenuItem, OptionGroup } from "../lib/supabaseClient";
 
 type CartLine = {
+  key: string;
   item: MenuItem;
   qty: number;
+  selections: Record<string, string[]>;
+  unitPrice: number;
 };
 
 export default function MenuPage() {
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [cart, setCart] = useState<Record<number, CartLine>>({});
+  const [cart, setCart] = useState<Record<string, CartLine>>({});
   const [cartOpen, setCartOpen] = useState(false);
+  const [optionItem, setOptionItem] = useState<MenuItem | null>(null);
+  const [modalSelections, setModalSelections] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     async function loadMenu() {
@@ -40,26 +45,89 @@ export default function MenuPage() {
     return Array.from(map.entries());
   }, [items]);
 
-  function addToCart(item: MenuItem) {
+  function hasOptions(item: MenuItem) {
+    return !!item.options?.groups?.length;
+  }
+
+  function openItem(item: MenuItem) {
+    if (!hasOptions(item)) {
+      addLineToCart(item, {}, 0);
+      return;
+    }
+    const initial: Record<string, string[]> = {};
+    for (const group of item.options!.groups) {
+      initial[group.name] = [];
+    }
+    setModalSelections(initial);
+    setOptionItem(item);
+  }
+
+  function toggleChoice(group: OptionGroup, label: string) {
+    setModalSelections((prev) => {
+      const current = prev[group.name] ?? [];
+      if (group.type === "single") {
+        return { ...prev, [group.name]: [label] };
+      }
+      const isSelected = current.includes(label);
+      const next = isSelected
+        ? current.filter((l) => l !== label)
+        : [...current, label];
+      return { ...prev, [group.name]: next };
+    });
+  }
+
+  function addLineToCart(
+    item: MenuItem,
+    selections: Record<string, string[]>,
+    priceDiff: number
+  ) {
+    const key = `${item.id}-${JSON.stringify(selections)}`;
     setCart((prev) => {
-      const existing = prev[item.id];
+      const existing = prev[key];
       return {
         ...prev,
-        [item.id]: { item, qty: (existing?.qty ?? 0) + 1 }
+        [key]: {
+          key,
+          item,
+          selections,
+          unitPrice: item.price + priceDiff,
+          qty: (existing?.qty ?? 0) + 1
+        }
       };
     });
   }
 
-  function changeQty(itemId: number, delta: number) {
+  function confirmOptions() {
+    if (!optionItem) return;
+    for (const group of optionItem.options!.groups) {
+      if (group.required && (modalSelections[group.name] ?? []).length === 0) {
+        alert(`กรุณาเลือก "${group.name}" ก่อนครับ`);
+        return;
+      }
+    }
+    let priceDiff = 0;
+    for (const group of optionItem.options!.groups) {
+      const selectedLabels = modalSelections[group.name] ?? [];
+      for (const choice of group.choices) {
+        if (selectedLabels.includes(choice.label)) {
+          priceDiff += choice.price_diff;
+        }
+      }
+    }
+    addLineToCart(optionItem, modalSelections, priceDiff);
+    setOptionItem(null);
+  }
+
+  function changeQty(key: string, delta: number) {
     setCart((prev) => {
-      const existing = prev[itemId];
+      const existing = prev[key];
       if (!existing) return prev;
       const nextQty = existing.qty + delta;
       const next = { ...prev };
       if (nextQty <= 0) {
-        delete next[itemId];
+        delete next[key];
       } else {
-        next[itemId] = { ...existing, qty: nextQty };
+        next[key] = { ...existing, qty: nextQty };
       }
       return next;
     });
@@ -68,7 +136,7 @@ export default function MenuPage() {
   const cartLines = Object.values(cart);
   const cartCount = cartLines.reduce((sum, line) => sum + line.qty, 0);
   const cartTotal = cartLines.reduce(
-    (sum, line) => sum + line.qty * line.item.price,
+    (sum, line) => sum + line.qty * line.unitPrice,
     0
   );
 
@@ -81,9 +149,7 @@ export default function MenuPage() {
         </h1>
       </header>
 
-      {loading && (
-        <p className="px-6 py-10 text-ink/60">กำลังโหลดเมนู...</p>
-      )}
+      {loading && <p className="px-6 py-10 text-ink/60">กำลังโหลดเมนู...</p>}
 
       {!loading && categories.length === 0 && (
         <p className="px-6 py-10 text-ink/60">
@@ -117,10 +183,13 @@ export default function MenuPage() {
                     <p className="font-medium text-ink">{item.name}</p>
                     <p className="mt-1 text-sm text-turmericDark">
                       {item.price.toFixed(0)} บาท
+                      {hasOptions(item) && (
+                        <span className="ml-1 text-ink/40">มีตัวเลือก</span>
+                      )}
                     </p>
                   </div>
                   <button
-                    onClick={() => addToCart(item)}
+                    onClick={() => openItem(item)}
                     className="rounded-full bg-forest px-4 py-2 text-sm font-medium text-sand transition hover:bg-forestDark"
                   >
                     เพิ่ม
@@ -142,6 +211,71 @@ export default function MenuPage() {
         </button>
       )}
 
+      {optionItem && (
+        <div className="fixed inset-0 z-20 flex items-end bg-ink/40">
+          <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-forestDark">
+                {optionItem.name}
+              </h3>
+              <button
+                onClick={() => setOptionItem(null)}
+                className="text-sm text-ink/50"
+              >
+                ปิด
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {optionItem.options!.groups.map((group) => (
+                <div key={group.name}>
+                  <p className="mb-2 font-medium text-ink">
+                    {group.name}
+                    {group.required && (
+                      <span className="ml-1 text-sm text-turmeric">
+                        (ต้องเลือก)
+                      </span>
+                    )}
+                  </p>
+                  <div className="space-y-2">
+                    {group.choices.map((choice) => {
+                      const selected = (
+                        modalSelections[group.name] ?? []
+                      ).includes(choice.label);
+                      return (
+                        <button
+                          key={choice.label}
+                          onClick={() => toggleChoice(group, choice.label)}
+                          className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
+                            selected
+                              ? "border-forest bg-forest/10"
+                              : "border-forest/15"
+                          }`}
+                        >
+                          <span>{choice.label}</span>
+                          <span className="text-sm text-ink/50">
+                            {choice.price_diff > 0
+                              ? `+${choice.price_diff}`
+                              : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={confirmOptions}
+              className="mt-6 w-full rounded-full bg-forest py-3 font-medium text-sand"
+            >
+              เพิ่มลงตะกร้า
+            </button>
+          </div>
+        </div>
+      )}
+
       {cartOpen && (
         <div className="fixed inset-0 z-10 flex items-end bg-ink/40">
           <div className="max-h-[80vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6">
@@ -158,31 +292,42 @@ export default function MenuPage() {
             </div>
 
             <div className="space-y-3">
-              {cartLines.map(({ item, qty }) => (
-                <div key={item.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-ink">{item.name}</p>
-                    <p className="text-sm text-ink/50">
-                      {item.price.toFixed(0)} บาท
-                    </p>
+              {cartLines.map((line) => {
+                const optionText = Object.values(line.selections)
+                  .flat()
+                  .join(", ");
+                return (
+                  <div
+                    key={line.key}
+                    className="flex items-center justify-between"
+                  >
+                    <div>
+                      <p className="font-medium text-ink">{line.item.name}</p>
+                      {optionText && (
+                        <p className="text-xs text-ink/40">{optionText}</p>
+                      )}
+                      <p className="text-sm text-ink/50">
+                        {line.unitPrice.toFixed(0)} บาท
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => changeQty(line.key, -1)}
+                        className="h-8 w-8 rounded-full border border-forest/20 text-forestDark"
+                      >
+                        -
+                      </button>
+                      <span className="w-4 text-center">{line.qty}</span>
+                      <button
+                        onClick={() => changeQty(line.key, 1)}
+                        className="h-8 w-8 rounded-full border border-forest/20 text-forestDark"
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() => changeQty(item.id, -1)}
-                      className="h-8 w-8 rounded-full border border-forest/20 text-forestDark"
-                    >
-                      -
-                    </button>
-                    <span className="w-4 text-center">{qty}</span>
-                    <button
-                      onClick={() => changeQty(item.id, 1)}
-                      className="h-8 w-8 rounded-full border border-forest/20 text-forestDark"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-6 flex items-center justify-between border-t border-forest/10 pt-4">
