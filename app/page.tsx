@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase, MenuItem, OptionGroup } from "../lib/supabaseClient";
 
 type CartLine = {
@@ -12,7 +13,21 @@ type CartLine = {
   note: string;
 };
 
-export default function MenuPage() {
+function MenuPageInner() {
+  const searchParams = useSearchParams();
+  const tableParam = searchParams.get("table");
+  const typeParam = searchParams.get("type");
+
+  const orderType: "table" | "takeaway" | "other" = tableParam
+    ? "table"
+    : typeParam === "takeaway"
+    ? "takeaway"
+    : "other";
+
+  const [takeawayConfirmed, setTakeawayConfirmed] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cart, setCart] = useState<Record<string, CartLine>>({});
@@ -21,6 +36,7 @@ export default function MenuPage() {
   const [modalSelections, setModalSelections] = useState<Record<string, string[]>>({});
   const [modalNote, setModalNote] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadMenu() {
@@ -161,10 +177,89 @@ export default function MenuPage() {
     0
   );
 
+  async function submitOrder() {
+    if (submitting || cartLines.length === 0) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderType,
+          tableNumber: tableParam ?? null,
+          customerName: orderType === "takeaway" ? customerName : null,
+          customerPhone: orderType === "takeaway" ? customerPhone : null,
+          items: cartLines.map((line) => ({
+            name: line.item.name,
+            qty: line.qty,
+            unitPrice: line.unitPrice,
+            note: line.note,
+            options: Object.values(line.selections).flat().join(", ")
+          })),
+          total: cartTotal
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        alert("ส่งออเดอร์ไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
+        return;
+      }
+      alert(`สั่งซื้อสำเร็จ! หมายเลขออเดอร์ #${data.orderId}`);
+      setCart({});
+      setCartOpen(false);
+    } catch (err) {
+      alert("ส่งออเดอร์ไม่สำเร็จ ลองใหม่อีกครั้งครับ");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (orderType === "takeaway" && !takeawayConfirmed) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-sand px-6">
+        <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-sm">
+          <h1 className="mb-1 font-display text-2xl font-semibold text-forestDark">
+            SiS HERE
+          </h1>
+          <p className="mb-6 text-sm text-ink/60">
+            สั่งกลับบ้าน — กรอกชื่อและเบอร์โทรก่อนนะครับ
+          </p>
+          <label className="mb-1 block text-sm text-ink/70">ชื่อ</label>
+          <input
+            type="text"
+            value={customerName}
+            onChange={(e) => setCustomerName(e.target.value)}
+            className="mb-4 w-full rounded-xl border border-forest/15 px-3 py-2"
+          />
+          <label className="mb-1 block text-sm text-ink/70">เบอร์โทร</label>
+          <input
+            type="tel"
+            value={customerPhone}
+            onChange={(e) => setCustomerPhone(e.target.value)}
+            className="mb-6 w-full rounded-xl border border-forest/15 px-3 py-2"
+          />
+          <button
+            disabled={!customerName || !customerPhone}
+            onClick={() => setTakeawayConfirmed(true)}
+            className="w-full rounded-full bg-forest py-3 font-medium text-sand disabled:opacity-40"
+          >
+            ดูเมนู
+          </button>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen pb-28">
       <header className="border-b border-forest/10 bg-sand px-6 py-8">
-        <p className="text-sm tracking-wide text-turmericDark">เมนูออนไลน์</p>
+        <p className="text-sm tracking-wide text-turmericDark">
+          {orderType === "table"
+            ? `เมนูออนไลน์ · โต๊ะ ${tableParam}`
+            : orderType === "takeaway"
+            ? `เมนูออนไลน์ · สั่งกลับบ้าน (${customerName})`
+            : "เมนูออนไลน์"}
+        </p>
         <h1 className="mt-1 font-display text-3xl font-semibold text-forestDark">
           SiS HERE
         </h1>
@@ -409,14 +504,23 @@ export default function MenuPage() {
             </div>
 
             <button
-              className="mt-4 w-full rounded-full bg-turmeric py-3 font-medium text-white transition hover:bg-turmericDark"
-              onClick={() => alert("ขั้นตอนถัดไป: เชื่อมกับหน้ายืนยันออเดอร์")}
+              disabled={submitting}
+              className="mt-4 w-full rounded-full bg-turmeric py-3 font-medium text-white transition hover:bg-turmericDark disabled:opacity-50"
+              onClick={submitOrder}
             >
-              สั่งซื้อ
+              {submitting ? "กำลังส่งออเดอร์..." : "สั่งซื้อ"}
             </button>
           </div>
         </div>
       )}
     </main>
+  );
+}
+
+export default function MenuPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-ink/60">กำลังโหลด...</div>}>
+      <MenuPageInner />
+    </Suspense>
   );
 }
