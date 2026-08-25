@@ -9,6 +9,7 @@ type CartLine = {
   qty: number;
   selections: Record<string, string[]>;
   unitPrice: number;
+  note: string;
 };
 
 export default function MenuPage() {
@@ -18,6 +19,8 @@ export default function MenuPage() {
   const [cartOpen, setCartOpen] = useState(false);
   const [optionItem, setOptionItem] = useState<MenuItem | null>(null);
   const [modalSelections, setModalSelections] = useState<Record<string, string[]>>({});
+  const [modalNote, setModalNote] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
   useEffect(() => {
     async function loadMenu() {
@@ -45,20 +48,24 @@ export default function MenuPage() {
     return Array.from(map.entries());
   }, [items]);
 
+  const visibleCategories = useMemo(() => {
+    if (selectedCategory === "all") return categories;
+    return categories.filter(([category]) => category === selectedCategory);
+  }, [categories, selectedCategory]);
+
   function hasOptions(item: MenuItem) {
     return !!item.options?.groups?.length;
   }
 
   function openItem(item: MenuItem) {
-    if (!hasOptions(item)) {
-      addLineToCart(item, {}, 0);
-      return;
-    }
     const initial: Record<string, string[]> = {};
-    for (const group of item.options!.groups) {
-      initial[group.name] = [];
+    if (hasOptions(item)) {
+      for (const group of item.options!.groups) {
+        initial[group.name] = [];
+      }
     }
     setModalSelections(initial);
+    setModalNote("");
     setOptionItem(item);
   }
 
@@ -79,9 +86,10 @@ export default function MenuPage() {
   function addLineToCart(
     item: MenuItem,
     selections: Record<string, string[]>,
-    priceDiff: number
+    priceDiff: number,
+    note: string
   ) {
-    const key = `${item.id}-${JSON.stringify(selections)}`;
+    const key = `${item.id}-${JSON.stringify(selections)}-${note}`;
     setCart((prev) => {
       const existing = prev[key];
       return {
@@ -91,30 +99,43 @@ export default function MenuPage() {
           item,
           selections,
           unitPrice: item.price + priceDiff,
-          qty: (existing?.qty ?? 0) + 1
+          qty: (existing?.qty ?? 0) + 1,
+          note
         }
       };
     });
   }
 
+  function setNote(key: string, note: string) {
+    setCart((prev) => {
+      const existing = prev[key];
+      if (!existing) return prev;
+      return { ...prev, [key]: { ...existing, note } };
+    });
+  }
+
   function confirmOptions() {
     if (!optionItem) return;
-    for (const group of optionItem.options!.groups) {
-      if (group.required && (modalSelections[group.name] ?? []).length === 0) {
-        alert(`กรุณาเลือก "${group.name}" ก่อนครับ`);
-        return;
-      }
-    }
-    let priceDiff = 0;
-    for (const group of optionItem.options!.groups) {
-      const selectedLabels = modalSelections[group.name] ?? [];
-      for (const choice of group.choices) {
-        if (selectedLabels.includes(choice.label)) {
-          priceDiff += choice.price_diff;
+    if (hasOptions(optionItem)) {
+      for (const group of optionItem.options!.groups) {
+        if (group.required && (modalSelections[group.name] ?? []).length === 0) {
+          alert(`กรุณาเลือก "${group.name}" ก่อนครับ`);
+          return;
         }
       }
     }
-    addLineToCart(optionItem, modalSelections, priceDiff);
+    let priceDiff = 0;
+    if (hasOptions(optionItem)) {
+      for (const group of optionItem.options!.groups) {
+        const selectedLabels = modalSelections[group.name] ?? [];
+        for (const choice of group.choices) {
+          if (selectedLabels.includes(choice.label)) {
+            priceDiff += choice.price_diff;
+          }
+        }
+      }
+    }
+    addLineToCart(optionItem, modalSelections, priceDiff, modalNote);
     setOptionItem(null);
   }
 
@@ -157,49 +178,79 @@ export default function MenuPage() {
         </p>
       )}
 
-      <div className="space-y-10 px-6 py-6">
-        {categories.map(([category, categoryItems]) => (
-          <section key={category}>
-            <h2 className="mb-3 text-lg font-semibold text-forestDark">
-              {category}
-            </h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {categoryItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="flex items-center gap-4 rounded-2xl border border-forest/10 bg-white p-3"
-                >
-                  {item.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.image_url}
-                      alt={item.name}
-                      className="h-20 w-20 flex-none rounded-xl object-cover"
-                    />
-                  ) : (
-                    <div className="h-20 w-20 flex-none rounded-xl bg-sand" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-medium text-ink">{item.name}</p>
-                    <p className="mt-1 text-sm text-turmericDark">
-                      {item.price.toFixed(0)} บาท
-                      {hasOptions(item) && (
-                        <span className="ml-1 text-ink/40">มีตัวเลือก</span>
+      {!loading && categories.length > 0 && (
+        <div className="flex">
+          <nav className="sticky top-0 h-[calc(100vh-1px)] w-20 flex-none overflow-y-auto border-r border-forest/10 bg-white py-4 sm:w-32">
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={`block w-full px-2 py-3 text-center text-xs sm:text-sm ${
+                selectedCategory === "all"
+                  ? "border-l-4 border-turmeric bg-forest/5 font-semibold text-forestDark"
+                  : "text-ink/60"
+              }`}
+            >
+              ทั้งหมด
+            </button>
+            {categories.map(([category]) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`block w-full px-2 py-3 text-center text-xs sm:text-sm ${
+                  selectedCategory === category
+                    ? "border-l-4 border-turmeric bg-forest/5 font-semibold text-forestDark"
+                    : "text-ink/60"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
+          </nav>
+
+          <div className="flex-1 space-y-10 px-4 py-6 sm:px-6">
+            {visibleCategories.map(([category, categoryItems]) => (
+              <section key={category}>
+                <h2 className="mb-3 text-lg font-semibold text-forestDark">
+                  {category}
+                </h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {categoryItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center gap-4 rounded-2xl border border-forest/10 bg-white p-3"
+                    >
+                      {item.image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.image_url}
+                          alt={item.name}
+                          className="h-20 w-20 flex-none rounded-xl object-cover"
+                        />
+                      ) : (
+                        <div className="h-20 w-20 flex-none rounded-xl bg-sand" />
                       )}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => openItem(item)}
-                    className="rounded-full bg-forest px-4 py-2 text-sm font-medium text-sand transition hover:bg-forestDark"
-                  >
-                    เพิ่ม
-                  </button>
+                      <div className="flex-1">
+                        <p className="font-medium text-ink">{item.name}</p>
+                        <p className="mt-1 text-sm text-turmericDark">
+                          {item.price.toFixed(0)} บาท
+                          {hasOptions(item) && (
+                            <span className="ml-1 text-ink/40">มีตัวเลือก</span>
+                          )}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => openItem(item)}
+                        className="rounded-full bg-forest px-4 py-2 text-sm font-medium text-sand transition hover:bg-forestDark"
+                      >
+                        เพิ่ม
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      )}
 
       {cartCount > 0 && (
         <button
@@ -226,44 +277,57 @@ export default function MenuPage() {
               </button>
             </div>
 
-            <div className="space-y-6">
-              {optionItem.options!.groups.map((group) => (
-                <div key={group.name}>
-                  <p className="mb-2 font-medium text-ink">
-                    {group.name}
-                    {group.required && (
-                      <span className="ml-1 text-sm text-turmeric">
-                        (ต้องเลือก)
-                      </span>
-                    )}
-                  </p>
-                  <div className="space-y-2">
-                    {group.choices.map((choice) => {
-                      const selected = (
-                        modalSelections[group.name] ?? []
-                      ).includes(choice.label);
-                      return (
-                        <button
-                          key={choice.label}
-                          onClick={() => toggleChoice(group, choice.label)}
-                          className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
-                            selected
-                              ? "border-forest bg-forest/10"
-                              : "border-forest/15"
-                          }`}
-                        >
-                          <span>{choice.label}</span>
-                          <span className="text-sm text-ink/50">
-                            {choice.price_diff > 0
-                              ? `+${choice.price_diff}`
-                              : ""}
-                          </span>
-                        </button>
-                      );
-                    })}
+            {hasOptions(optionItem) && (
+              <div className="space-y-6">
+                {optionItem.options!.groups.map((group) => (
+                  <div key={group.name}>
+                    <p className="mb-2 font-medium text-ink">
+                      {group.name}
+                      {group.required && (
+                        <span className="ml-1 text-sm text-turmeric">
+                          (ต้องเลือก)
+                        </span>
+                      )}
+                    </p>
+                    <div className="space-y-2">
+                      {group.choices.map((choice) => {
+                        const selected = (
+                          modalSelections[group.name] ?? []
+                        ).includes(choice.label);
+                        return (
+                          <button
+                            key={choice.label}
+                            onClick={() => toggleChoice(group, choice.label)}
+                            className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
+                              selected
+                                ? "border-forest bg-forest/10"
+                                : "border-forest/15"
+                            }`}
+                          >
+                            <span>{choice.label}</span>
+                            <span className="text-sm text-ink/50">
+                              {choice.price_diff > 0
+                                ? `+${choice.price_diff}`
+                                : ""}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            )}
+
+            <div className={hasOptions(optionItem) ? "mt-6" : ""}>
+              <p className="mb-2 font-medium text-ink">หมายเหตุ (ถ้ามี)</p>
+              <textarea
+                value={modalNote}
+                onChange={(e) => setModalNote(e.target.value)}
+                placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย"
+                rows={2}
+                className="w-full rounded-xl border border-forest/15 px-3 py-2 text-sm text-ink placeholder:text-ink/30"
+              />
             </div>
 
             <button
@@ -309,6 +373,13 @@ export default function MenuPage() {
                       <p className="text-sm text-ink/50">
                         {line.unitPrice.toFixed(0)} บาท
                       </p>
+                      <input
+                        type="text"
+                        value={line.note}
+                        onChange={(e) => setNote(line.key, e.target.value)}
+                        placeholder="หมายเหตุ เช่น ไม่ใส่ผัก, เผ็ดน้อย"
+                        className="mt-1 w-full rounded-lg border border-forest/15 px-2 py-1 text-xs text-ink placeholder:text-ink/30"
+                      />
                     </div>
                     <div className="flex items-center gap-3">
                       <button
