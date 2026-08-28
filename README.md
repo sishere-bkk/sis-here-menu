@@ -43,3 +43,4 @@ npm run dev
 - บันทึกออเดอร์ลงตาราง `orders`
 - ยิงแจ้งเตือนเข้า Discord Webhook และ LINE Messaging API
 - หน้าพนักงานสำหรับพิมพ์บิลลงเครื่องพิมพ์ thermal
+
