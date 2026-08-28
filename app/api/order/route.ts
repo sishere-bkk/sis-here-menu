@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (process.env.LINE_CHANNEL_ACCESS_TOKEN) {
-      await fetch("https://api.line.me/v2/bot/message/broadcast", {
+      const lineRes = await fetch("https://api.line.me/v2/bot/message/broadcast", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -62,6 +62,11 @@ export async function POST(request: NextRequest) {
           messages: [{ type: "text", text: messageText }]
         })
       });
+      const lineResultText = await lineRes.text();
+      console.log("LINE API status:", lineRes.status);
+      console.log("LINE API response:", lineResultText);
+    } else {
+      console.log("LINE_CHANNEL_ACCESS_TOKEN is not set");
     }
 
     return NextResponse.json({ success: true, orderId });
