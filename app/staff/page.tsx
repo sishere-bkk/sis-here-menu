@@ -37,6 +37,13 @@ function sourceLabel(o: OrderRow) {
   return "อื่นๆ";
 }
 
+function orderTotal(o: OrderRow) {
+  return o.items.reduce(
+    (sum: number, line: any) => sum + line.unitPrice * line.qty,
+    0
+  );
+}
+
 export default function StaffPage() {
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
@@ -82,12 +89,7 @@ export default function StaffPage() {
     setOrders((prev) => prev.filter((o) => o.id !== id));
   }
 
-  const printTotal = printOrder
-    ? printOrder.items.reduce(
-        (sum: number, line: any) => sum + line.unitPrice * line.qty,
-        0
-      )
-    : 0;
+  const printTotal = printOrder ? orderTotal(printOrder) : 0;
 
   return (
     <div>
@@ -98,6 +100,7 @@ export default function StaffPage() {
         <p className="mb-6 text-sm text-ink/60">
           เปิดหน้านี้ค้างไว้บนคอมหรือแท็บเล็ตที่ต่อกับเครื่องพิมพ์ในร้าน
           รายการจะอัปเดตเองทุก 5 วินาที กดปุ่ม "พิมพ์บิล" เมื่อพร้อม
+          (แสดงเฉพาะออเดอร์ของวันนี้เท่านั้น)
         </p>
 
         {orders.length === 0 && (
@@ -108,21 +111,52 @@ export default function StaffPage() {
           {orders.map((o) => (
             <div
               key={o.id}
-              className="flex items-center justify-between rounded-xl border border-forest/15 bg-white p-4"
+              className="rounded-xl border border-forest/15 bg-white p-4"
             >
-              <div>
-                <p className="font-semibold text-ink">ออเดอร์ #{o.id}</p>
-                <p className="text-sm text-ink/60">{sourceLabel(o)}</p>
-                <p className="text-xs text-ink/40">
-                  {formatDateTime(o.created_at)}
+              <div className="mb-2 flex items-start justify-between">
+                <div>
+                  <p className="font-semibold text-ink">ออเดอร์ #{o.id}</p>
+                  <p className="text-sm text-ink/60">{sourceLabel(o)}</p>
+                  <p className="text-xs text-ink/40">
+                    {formatDateTime(o.created_at)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPrintOrder(o)}
+                  className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-sand"
+                >
+                  พิมพ์บิล
+                </button>
+              </div>
+
+              <div className="mt-2 space-y-1 border-t border-forest/10 pt-2 text-sm">
+                {o.items.map((line: any, idx: number) => (
+                  <div key={idx}>
+                    <p className="text-ink">
+                      {line.qty} x {line.name}{" "}
+                      <span className="text-[#8B3A2B]">
+                        {(line.unitPrice * line.qty).toFixed(0)} บาท
+                      </span>
+                    </p>
+                    {line.options &&
+                      String(line.options)
+                        .split(",")
+                        .map((opt: string) => opt.trim())
+                        .filter(Boolean)
+                        .map((opt: string, i: number) => (
+                          <p key={i} className="pl-4 text-xs text-ink/60">
+                            + {opt}
+                          </p>
+                        ))}
+                    {line.note && (
+                      <p className="pl-4 text-xs text-ink/60">+ {line.note}</p>
+                    )}
+                  </div>
+                ))}
+                <p className="pt-1 text-right font-semibold text-[#8B3A2B]">
+                  รวม {orderTotal(o).toFixed(0)} บาท
                 </p>
               </div>
-              <button
-                onClick={() => setPrintOrder(o)}
-                className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-sand"
-              >
-                พิมพ์บิล
-              </button>
             </div>
           ))}
         </div>
