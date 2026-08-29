@@ -21,7 +21,10 @@ const CATEGORY_ORDER = [
 ];
 
 function categoryRank(category: string) {
-  const index = CATEGORY_ORDER.indexOf(category);
+  const normalized = category.normalize("NFC").trim();
+  const index = CATEGORY_ORDER.findIndex(
+    (c) => c.normalize("NFC").trim() === normalized
+  );
   return index === -1 ? CATEGORY_ORDER.length : index;
 }
 
