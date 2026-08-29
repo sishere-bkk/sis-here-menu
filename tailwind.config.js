@@ -6,12 +6,12 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        sand: "#FAF6EE",
-        forest: "#2F4A3D",
-        forestDark: "#1D2F27",
-        turmeric: "#D98E3B",
-        turmericDark: "#B06F26",
-        ink: "#2B2A26"
+        sand: "#FBF3E3",
+        forest: "#E8792F",
+        forestDark: "#B85A1F",
+        turmeric: "#F2B705",
+        turmericDark: "#C98F02",
+        ink: "#3A2A18"
       },
       fontFamily: {
         display: ["'Sukhumvit Set'", "'Noto Sans Thai'", "system-ui", "sans-serif"],
