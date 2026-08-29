@@ -15,8 +15,8 @@ type CartLine = {
 
 const CATEGORY_ORDER = [
   "อาหารเช้า",
-  "อาหารจานเดียว",
   "สปาเก็ตตี้",
+  "อาหารจานเดียว",
   "สลัด และของทานเล่น"
 ];
 
@@ -76,6 +76,7 @@ function MenuPageInner() {
     return Array.from(map.entries()).sort(
       (a, b) => categoryRank(a[0]) - categoryRank(b[0])
     );
+  }, [items]);
 
   const visibleCategories = useMemo(() => {
     if (selectedCategory === "all") return categories;
