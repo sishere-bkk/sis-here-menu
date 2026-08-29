@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "../../lib/supabaseClient";
 
 type OrderRow = {
   id: number;
@@ -43,12 +42,13 @@ export default function StaffPage() {
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
 
   async function loadOrders() {
-    const { data, error } = await supabase
-      .from("orders")
-      .select("*")
-      .eq("status", "new")
-      .order("created_at", { ascending: true });
-    if (!error && data) setOrders(data as OrderRow[]);
+    try {
+      const res = await fetch("/api/staff-orders");
+      const data = await res.json();
+      if (res.ok && data.orders) setOrders(data.orders as OrderRow[]);
+    } catch (err) {
+      // ignore, will retry on next poll
+    }
   }
 
   useEffect(() => {
@@ -74,7 +74,11 @@ export default function StaffPage() {
   }, [printOrder]);
 
   async function markPrinted(id: number) {
-    await supabase.from("orders").update({ status: "printed" }).eq("id", id);
+    await fetch("/api/staff-orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id })
+    });
     setOrders((prev) => prev.filter((o) => o.id !== id));
   }
 
