@@ -5,7 +5,21 @@
 @tailwind utilities;
 
 body {
-  background-color: #FAF6EE;
-  color: #2B2A26;
+  background-color: #FCEFC0;
+  color: #3A2A18;
   font-family: "Noto Sans Thai", system-ui, sans-serif;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-area {
+    display: block !important;
+  }
+}
+
+@page {
+  size: 80mm auto;
+  margin: 0;
 }
