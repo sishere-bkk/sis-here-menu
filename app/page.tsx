@@ -269,7 +269,7 @@ function MenuPageInner() {
 
   return (
     <main className="min-h-screen pb-28">
-      <header className="flex items-center gap-4 border-b border-forest/10 bg-sand px-6 py-6">
+      <header className="flex items-center gap-4 border-b border-forest/10 bg-sand px-6 py-3">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo-v2.png"
@@ -303,7 +303,7 @@ function MenuPageInner() {
           <nav className="sticky top-0 h-[calc(100vh-1px)] w-20 flex-none overflow-y-auto border-r border-forest/10 bg-white py-4 sm:w-32">
             <button
               onClick={() => setSelectedCategory("all")}
-              className={`block w-full px-2 py-3 text-center text-xs sm:text-sm ${
+              className={`block w-full py-3 pl-4 pr-2 text-center text-xs sm:text-sm ${
                 selectedCategory === "all"
                   ? "border-l-4 border-turmeric bg-forest/5 font-semibold text-forestDark"
                   : "text-ink/60"
@@ -350,11 +350,8 @@ function MenuPageInner() {
                       )}
                       <div className="flex-1">
                         <p className="font-medium text-ink">{item.name}</p>
-                        <p className="mt-1 text-sm text-turmericDark">
+                        <p className="mt-1 text-sm font-semibold text-ink">
                           {item.price.toFixed(0)} บาท
-                          {hasOptions(item) && (
-                            <span className="ml-1 text-ink/40">มีตัวเลือก</span>
-                          )}
                         </p>
                       </div>
                       <button
