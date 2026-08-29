@@ -269,22 +269,22 @@ function MenuPageInner() {
 
   return (
     <main className="min-h-screen pb-28">
-      <header className="flex items-center gap-4 border-b border-forest/10 bg-sand px-6 py-3">
+      <header className="flex items-center gap-3 border-b border-forest/10 bg-sand px-6 py-2">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo-v2.png"
           alt="SiS HERE"
-          className="h-16 w-16 flex-none rounded-full object-cover"
+          className="h-10 w-10 flex-none rounded-full object-cover sm:h-14 sm:w-14"
         />
         <div>
-          <p className="text-sm tracking-wide text-turmericDark">
+          <p className="text-xs tracking-wide text-turmericDark sm:text-sm">
             {orderType === "table"
               ? `เมนูออนไลน์ · โต๊ะ ${tableParam}`
               : orderType === "takeaway"
               ? `เมนูออนไลน์ · สั่งกลับบ้าน (${customerName})`
               : "เมนูออนไลน์"}
           </p>
-          <h1 className="mt-1 font-display text-3xl font-semibold text-forestDark">
+          <h1 className="font-display text-xl font-semibold text-forestDark sm:text-3xl">
             SiS HERE
           </h1>
         </div>
@@ -350,7 +350,7 @@ function MenuPageInner() {
                       )}
                       <div className="flex-1">
                         <p className="font-medium text-ink">{item.name}</p>
-                        <p className="mt-1 text-sm font-semibold text-ink">
+                        <p className="mt-1 text-sm font-semibold text-[#8B3A2B]">
                           {item.price.toFixed(0)} บาท
                         </p>
                       </div>
