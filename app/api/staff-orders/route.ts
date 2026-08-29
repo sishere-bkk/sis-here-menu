@@ -8,12 +8,33 @@ function getAdmin() {
   );
 }
 
+// หาช่วงเวลา "วันนี้" ตามเขตเวลาไทย (Asia/Bangkok) แล้วแปลงเป็น UTC
+// เพื่อกรองออเดอร์ - ออเดอร์เก่าข้ามวันจะไม่โผล่มาอีก
+function getTodayRangeBangkok() {
+  const now = new Date();
+  const bkkDateStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Bangkok",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(now); // "YYYY-MM-DD"
+
+  const startOfDay = new Date(`${bkkDateStr}T00:00:00+07:00`);
+  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+
+  return { startOfDay, endOfDay };
+}
+
 export async function GET() {
   const admin = getAdmin();
+  const { startOfDay, endOfDay } = getTodayRangeBangkok();
+
   const { data, error } = await admin
     .from("orders")
     .select("*")
     .eq("status", "new")
+    .gte("created_at", startOfDay.toISOString())
+    .lt("created_at", endOfDay.toISOString())
     .order("created_at", { ascending: true });
 
   if (error) {
