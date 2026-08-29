@@ -269,17 +269,25 @@ function MenuPageInner() {
 
   return (
     <main className="min-h-screen pb-28">
-      <header className="border-b border-forest/10 bg-sand px-6 py-8">
-        <p className="text-sm tracking-wide text-turmericDark">
-          {orderType === "table"
-            ? `เมนูออนไลน์ · โต๊ะ ${tableParam}`
-            : orderType === "takeaway"
-            ? `เมนูออนไลน์ · สั่งกลับบ้าน (${customerName})`
-            : "เมนูออนไลน์"}
-        </p>
-        <h1 className="mt-1 font-display text-3xl font-semibold text-forestDark">
-          SiS HERE
-        </h1>
+      <header className="flex items-center gap-4 border-b border-forest/10 bg-sand px-6 py-6">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt="SiS HERE"
+          className="h-16 w-16 flex-none rounded-full object-cover"
+        />
+        <div>
+          <p className="text-sm tracking-wide text-turmericDark">
+            {orderType === "table"
+              ? `เมนูออนไลน์ · โต๊ะ ${tableParam}`
+              : orderType === "takeaway"
+              ? `เมนูออนไลน์ · สั่งกลับบ้าน (${customerName})`
+              : "เมนูออนไลน์"}
+          </p>
+          <h1 className="mt-1 font-display text-3xl font-semibold text-forestDark">
+            SiS HERE
+          </h1>
+        </div>
       </header>
 
       {loading && <p className="px-6 py-10 text-ink/60">กำลังโหลดเมนู...</p>}
