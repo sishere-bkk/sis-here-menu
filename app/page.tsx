@@ -13,6 +13,18 @@ type CartLine = {
   note: string;
 };
 
+const CATEGORY_ORDER = [
+  "อาหารเช้า",
+  "สปาเก็ตตี้",
+  "อาหารจานเดียว",
+  "สลัด และของทานเล่น"
+];
+
+function categoryRank(category: string) {
+  const index = CATEGORY_ORDER.indexOf(category);
+  return index === -1 ? CATEGORY_ORDER.length : index;
+}
+
 function MenuPageInner() {
   const searchParams = useSearchParams();
   const tableParam = searchParams.get("table");
@@ -61,8 +73,9 @@ function MenuPageInner() {
       list.push(item);
       map.set(item.category, list);
     }
-    return Array.from(map.entries());
-  }, [items]);
+    return Array.from(map.entries()).sort(
+      (a, b) => categoryRank(a[0]) - categoryRank(b[0])
+    );
 
   const visibleCategories = useMemo(() => {
     if (selectedCategory === "all") return categories;
