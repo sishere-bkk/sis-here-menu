@@ -272,7 +272,7 @@ function MenuPageInner() {
       <header className="flex items-center gap-4 border-b border-forest/10 bg-sand px-6 py-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="/logo.png"
+          src="/logo-v2.png"
           alt="SiS HERE"
           className="h-16 w-16 flex-none rounded-full object-cover"
         />
