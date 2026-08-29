@@ -26,7 +26,7 @@ function buildReceiptBody(
   items: any[],
   total: number
 ) {
-  const separator = "-".repeat(45);
+  const separator = "-".repeat(30);
   const sourceLabel =
     orderType === "table"
       ? `Table ${tableNumber}`
@@ -46,7 +46,7 @@ function buildReceiptBody(
     const lineTotal = line.unitPrice * line.qty;
     const namePart = `${line.qty} x ${line.name}`;
     const pricePart = `${lineTotal.toFixed(0)} บาท`;
-    const gap = Math.max(1, 40 - namePart.length - pricePart.length);
+    const gap = Math.max(1, 26 - namePart.length - pricePart.length);
     lines.push(namePart + " ".repeat(gap) + pricePart);
 
     if (line.options) {
