@@ -229,7 +229,7 @@ export default function StockTab() {
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            className={`whitespace-nowrap rounded-full border px-4 py-1.5 text-sm ${
+            className={`flex-shrink-0 whitespace-nowrap rounded-full border px-4 py-1.5 text-sm ${
               activeCategory === cat
                 ? "border-forest bg-forest text-sand"
                 : "border-forest/20 text-forestDark"
