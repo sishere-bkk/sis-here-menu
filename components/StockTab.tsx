@@ -230,7 +230,7 @@ export default function StockTab() {
             key={cat}
             onClick={() => setActiveCategory(cat)}
             style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-            className={`rounded-full border px-4 py-1.5 text-sm ${
+            className={`rounded-full border px-5 py-2.5 text-base font-medium ${
               activeCategory === cat
                 ? "border-forest bg-forest text-sand"
                 : "border-forest/20 text-forestDark"
