@@ -8,8 +8,6 @@ function getAdmin() {
   );
 }
 
-// หาช่วงเวลา "วันนี้" ตามเขตเวลาไทย (Asia/Bangkok = UTC+7)
-// คำนวณด้วยตัวเลขล้วนๆ เพื่อความชัวร์ ไม่พึ่งการแปลงข้อความวันที่
 function getTodayRangeBangkok() {
   const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
   const nowUtcMs = Date.now();
@@ -51,10 +49,17 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   const { id } = body;
+
+  // ดึงชื่อพนักงานจาก cookie ที่ middleware ตรวจสอบผ่านมาแล้ว
+  const cookie = request.cookies.get("staff_session")?.value ?? "";
+  const separatorIndex = cookie.lastIndexOf(".");
+  const payload = separatorIndex !== -1 ? cookie.slice(0, separatorIndex) : "";
+  const staffName = payload.split("|")[0] || "ไม่ทราบชื่อ";
+
   const admin = getAdmin();
   const { error } = await admin
     .from("orders")
-    .update({ status: "printed" })
+    .update({ status: "printed", printed_by: staffName })
     .eq("id", id);
 
   if (error) {
