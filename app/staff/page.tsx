@@ -135,26 +135,22 @@ export default function StaffPage() {
           </div>
         </div>
 
-        <div className="mb-6 mt-3 flex gap-2">
+        <div className="mb-6 mt-3 inline-flex rounded-2xl bg-forest/10 p-1">
           <button
             onClick={() => setTab("orders")}
-            className={`rounded-full px-5 py-2 text-sm font-medium ${
-              tab === "orders"
-                ? "bg-forest text-sand"
-                : "border border-forest/20 text-forestDark"
+            className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+              tab === "orders" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
-            ออเดอร์
+            📋 ออเดอร์
           </button>
           <button
             onClick={() => setTab("stock")}
-            className={`rounded-full px-5 py-2 text-sm font-medium ${
-              tab === "stock"
-                ? "bg-forest text-sand"
-                : "border border-forest/20 text-forestDark"
+            className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+              tab === "stock" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
-            สต็อก
+            📦 สต็อก
           </button>
         </div>
 
