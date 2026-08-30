@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 type OrderRow = {
   id: number;
@@ -44,13 +45,28 @@ function orderTotal(o: OrderRow) {
   );
 }
 
+function getCookie(name: string): string {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
 export default function StaffPage() {
+  const router = useRouter();
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
+  const [staffName, setStaffName] = useState("");
+
+  useEffect(() => {
+    setStaffName(getCookie("staff_display_name"));
+  }, []);
 
   async function loadOrders() {
     try {
       const res = await fetch("/api/staff-orders");
+      if (res.status === 401) {
+        router.push("/staff/login");
+        return;
+      }
       const data = await res.json();
       if (res.ok && data.orders) setOrders(data.orders as OrderRow[]);
     } catch (err) {
@@ -62,6 +78,7 @@ export default function StaffPage() {
     loadOrders();
     const interval = setInterval(loadOrders, 5000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -89,14 +106,32 @@ export default function StaffPage() {
     setOrders((prev) => prev.filter((o) => o.id !== id));
   }
 
+  async function handleLogout() {
+    await fetch("/api/staff-logout", { method: "POST" });
+    router.push("/staff/login");
+  }
+
   const printTotal = printOrder ? orderTotal(printOrder) : 0;
 
   return (
     <div>
       <div className="no-print p-6">
-        <h1 className="mb-1 text-2xl font-semibold text-forestDark">
-          หน้าพนักงาน — ออเดอร์ใหม่
-        </h1>
+        <div className="mb-1 flex items-center justify-between">
+          <h1 className="text-2xl font-semibold text-forestDark">
+            หน้าพนักงาน — ออเดอร์ใหม่
+          </h1>
+          <div className="flex items-center gap-3">
+            {staffName && (
+              <span className="text-sm text-ink/60">สวัสดี {staffName}</span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="rounded-full border border-forest/20 px-4 py-1.5 text-sm text-forestDark"
+            >
+              ออกจากระบบ
+            </button>
+          </div>
+        </div>
         <p className="mb-6 text-sm text-ink/60">
           เปิดหน้านี้ค้างไว้บนคอมหรือแท็บเล็ตที่ต่อกับเครื่องพิมพ์ในร้าน
           รายการจะอัปเดตเองทุก 5 วินาที กดปุ่ม "พิมพ์บิล" เมื่อพร้อม
@@ -186,6 +221,7 @@ export default function StaffPage() {
             ))}
             <p>------------------------------</p>
             <p>รวม: {printTotal.toFixed(0)} บาท</p>
+            {staffName && <p>พนักงาน: {staffName}</p>}
           </div>
         </div>
       )}
