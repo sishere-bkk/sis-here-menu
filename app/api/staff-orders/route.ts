@@ -8,21 +8,26 @@ function getAdmin() {
   );
 }
 
-// หาช่วงเวลา "วันนี้" ตามเขตเวลาไทย (Asia/Bangkok) แล้วแปลงเป็น UTC
-// เพื่อกรองออเดอร์ - ออเดอร์เก่าข้ามวันจะไม่โผล่มาอีก
+// หาช่วงเวลา "วันนี้" ตามเขตเวลาไทย (Asia/Bangkok = UTC+7)
+// คำนวณด้วยตัวเลขล้วนๆ เพื่อความชัวร์ ไม่พึ่งการแปลงข้อความวันที่
 function getTodayRangeBangkok() {
-  const now = new Date();
-  const bkkDateStr = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Bangkok",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(now); // "YYYY-MM-DD"
+  const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+  const nowUtcMs = Date.now();
+  const bangkokNowMs = nowUtcMs + BANGKOK_OFFSET_MS;
+  const bangkokNow = new Date(bangkokNowMs);
 
-  const startOfDay = new Date(`${bkkDateStr}T00:00:00+07:00`);
-  const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000);
+  const startOfDayBangkokMs =
+    Date.UTC(
+      bangkokNow.getUTCFullYear(),
+      bangkokNow.getUTCMonth(),
+      bangkokNow.getUTCDate()
+    ) - BANGKOK_OFFSET_MS;
+  const endOfDayBangkokMs = startOfDayBangkokMs + 24 * 60 * 60 * 1000;
 
-  return { startOfDay, endOfDay };
+  return {
+    startOfDay: new Date(startOfDayBangkokMs),
+    endOfDay: new Date(endOfDayBangkokMs)
+  };
 }
 
 export async function GET() {
