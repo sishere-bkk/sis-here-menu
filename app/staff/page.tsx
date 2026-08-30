@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import StockTab from "../../components/StockTab";
 
 type OrderRow = {
   id: number;
@@ -52,6 +53,7 @@ function getCookie(name: string): string {
 
 export default function StaffPage() {
   const router = useRouter();
+  const [tab, setTab] = useState<"orders" | "stock">("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
   const [staffName, setStaffName] = useState("");
@@ -118,7 +120,7 @@ export default function StaffPage() {
       <div className="no-print p-6">
         <div className="mb-1 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-forestDark">
-            หน้าพนักงาน — ออเดอร์ใหม่
+            หน้าพนักงาน
           </h1>
           <div className="flex items-center gap-3">
             {staffName && (
@@ -132,69 +134,99 @@ export default function StaffPage() {
             </button>
           </div>
         </div>
-        <p className="mb-6 text-sm text-ink/60">
-          เปิดหน้านี้ค้างไว้บนคอมหรือแท็บเล็ตที่ต่อกับเครื่องพิมพ์ในร้าน
-          รายการจะอัปเดตเองทุก 5 วินาที กดปุ่ม "พิมพ์บิล" เมื่อพร้อม
-          (แสดงเฉพาะออเดอร์ของวันนี้เท่านั้น)
-        </p>
 
-        {orders.length === 0 && (
-          <p className="text-ink/50">ยังไม่มีออเดอร์ใหม่</p>
+        <div className="mb-6 mt-3 flex gap-2">
+          <button
+            onClick={() => setTab("orders")}
+            className={`rounded-full px-5 py-2 text-sm font-medium ${
+              tab === "orders"
+                ? "bg-forest text-sand"
+                : "border border-forest/20 text-forestDark"
+            }`}
+          >
+            ออเดอร์
+          </button>
+          <button
+            onClick={() => setTab("stock")}
+            className={`rounded-full px-5 py-2 text-sm font-medium ${
+              tab === "stock"
+                ? "bg-forest text-sand"
+                : "border border-forest/20 text-forestDark"
+            }`}
+          >
+            สต็อก
+          </button>
+        </div>
+
+        {tab === "orders" && (
+          <>
+            <p className="mb-6 text-sm text-ink/60">
+              เปิดหน้านี้ค้างไว้บนคอมหรือแท็บเล็ตที่ต่อกับเครื่องพิมพ์ในร้าน
+              รายการจะอัปเดตเองทุก 5 วินาที กดปุ่ม "พิมพ์บิล" เมื่อพร้อม
+              (แสดงเฉพาะออเดอร์ของวันนี้เท่านั้น)
+            </p>
+
+            {orders.length === 0 && (
+              <p className="text-ink/50">ยังไม่มีออเดอร์ใหม่</p>
+            )}
+
+            <div className="space-y-3">
+              {orders.map((o) => (
+                <div
+                  key={o.id}
+                  className="rounded-xl border border-forest/15 bg-white p-4"
+                >
+                  <div className="mb-2 flex items-start justify-between">
+                    <div>
+                      <p className="font-semibold text-ink">ออเดอร์ #{o.id}</p>
+                      <p className="text-sm text-ink/60">{sourceLabel(o)}</p>
+                      <p className="text-xs text-ink/40">
+                        {formatDateTime(o.created_at)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setPrintOrder(o)}
+                      className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-sand"
+                    >
+                      พิมพ์บิล
+                    </button>
+                  </div>
+
+                  <div className="mt-2 space-y-1 border-t border-forest/10 pt-2 text-sm">
+                    {o.items.map((line: any, idx: number) => (
+                      <div key={idx}>
+                        <p className="text-ink">
+                          {line.qty} x {line.name}{" "}
+                          <span className="text-[#8B3A2B]">
+                            {(line.unitPrice * line.qty).toFixed(0)} บาท
+                          </span>
+                        </p>
+                        {line.options &&
+                          String(line.options)
+                            .split(",")
+                            .map((opt: string) => opt.trim())
+                            .filter(Boolean)
+                            .map((opt: string, i: number) => (
+                              <p key={i} className="pl-4 text-xs text-ink/60">
+                                + {opt}
+                              </p>
+                            ))}
+                        {line.note && (
+                          <p className="pl-4 text-xs text-ink/60">+ {line.note}</p>
+                        )}
+                      </div>
+                    ))}
+                    <p className="pt-1 text-right font-semibold text-[#8B3A2B]">
+                      รวม {orderTotal(o).toFixed(0)} บาท
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
-        <div className="space-y-3">
-          {orders.map((o) => (
-            <div
-              key={o.id}
-              className="rounded-xl border border-forest/15 bg-white p-4"
-            >
-              <div className="mb-2 flex items-start justify-between">
-                <div>
-                  <p className="font-semibold text-ink">ออเดอร์ #{o.id}</p>
-                  <p className="text-sm text-ink/60">{sourceLabel(o)}</p>
-                  <p className="text-xs text-ink/40">
-                    {formatDateTime(o.created_at)}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setPrintOrder(o)}
-                  className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-sand"
-                >
-                  พิมพ์บิล
-                </button>
-              </div>
-
-              <div className="mt-2 space-y-1 border-t border-forest/10 pt-2 text-sm">
-                {o.items.map((line: any, idx: number) => (
-                  <div key={idx}>
-                    <p className="text-ink">
-                      {line.qty} x {line.name}{" "}
-                      <span className="text-[#8B3A2B]">
-                        {(line.unitPrice * line.qty).toFixed(0)} บาท
-                      </span>
-                    </p>
-                    {line.options &&
-                      String(line.options)
-                        .split(",")
-                        .map((opt: string) => opt.trim())
-                        .filter(Boolean)
-                        .map((opt: string, i: number) => (
-                          <p key={i} className="pl-4 text-xs text-ink/60">
-                            + {opt}
-                          </p>
-                        ))}
-                    {line.note && (
-                      <p className="pl-4 text-xs text-ink/60">+ {line.note}</p>
-                    )}
-                  </div>
-                ))}
-                <p className="pt-1 text-right font-semibold text-[#8B3A2B]">
-                  รวม {orderTotal(o).toFixed(0)} บาท
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
+        {tab === "stock" && <StockTab />}
       </div>
 
       {printOrder && (
