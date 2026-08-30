@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
   const { id, action, value } = body;
   const staffName = getStaffName(request);
   const admin = getAdmin();
+  const nowIso = new Date().toISOString();
 
   const { data: item, error: fetchError } = await admin
     .from("stock_items")
@@ -42,6 +43,31 @@ export async function POST(request: NextRequest) {
 
   if (fetchError || !item) {
     return NextResponse.json({ error: "ไม่พบรายการนี้" }, { status: 404 });
+  }
+
+  // action "confirm" = พนักงานเช็คแล้วแต่ค่าเท่าเดิม ไม่ต้องแก้อะไร แค่บันทึกว่าเช็คแล้ว
+  if (action === "confirm") {
+    const currentValue =
+      item.count_method === "level" ? item.level_value ?? "" : String(item.count_value ?? 0);
+
+    const { error: updateError } = await admin
+      .from("stock_items")
+      .update({ last_checked_at: nowIso, checked_by: staffName })
+      .eq("id", id);
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 });
+    }
+
+    await admin.from("stock_log").insert({
+      stock_id: id,
+      item_name: item.name,
+      changed_by: staffName,
+      from_value: currentValue,
+      to_value: currentValue
+    });
+
+    return NextResponse.json({ success: true, status: item.status });
   }
 
   let update: Record<string, any> = {};
@@ -74,8 +100,12 @@ export async function POST(request: NextRequest) {
     };
   }
 
-  update.updated_at = new Date().toISOString();
+  // updated_at/updated_by = แก้ไขค่าล่าสุดเมื่อไหร่ / โดยใคร
+  update.updated_at = nowIso;
   update.updated_by = staffName;
+  // last_checked_at/checked_by = เช็ควันนี้แล้วหรือยัง (ใช้กับไฟบนการ์ด)
+  update.last_checked_at = nowIso;
+  update.checked_by = staffName;
 
   const { error: updateError } = await admin
     .from("stock_items")
