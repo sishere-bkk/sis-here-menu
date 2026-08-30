@@ -14,6 +14,8 @@ type StockItem = {
   count_value: number | null;
   status: string;
   photo_url: string | null;
+  last_checked_at: string | null;
+  checked_by: string | null;
 };
 
 const CATEGORY_ORDER = [
@@ -28,27 +30,86 @@ const CATEGORY_ORDER = [
 ];
 
 const LEVELS = ["เยอะ", "ครึ่ง", "ใกล้หมด", "หมด"];
+const FILTERS = ["ทั้งหมด", "ยังไม่เช็ค", "ใกล้หมด"] as const;
+type Filter = (typeof FILTERS)[number];
 
-function statusStyle(status: string) {
+function badgeStyle(status: string) {
   switch (status) {
     case "ปกติ":
-      return "bg-green-50 text-green-700 border-green-200";
+      return "bg-green-100 text-green-700 border-green-200";
     case "เฝ้าดู":
-      return "bg-yellow-50 text-yellow-700 border-yellow-200";
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
     case "ใกล้หมด":
-      return "bg-orange-50 text-orange-700 border-orange-200";
+      return "bg-orange-100 text-orange-700 border-orange-200";
     case "หมด":
-      return "bg-red-50 text-red-700 border-red-200";
+      return "bg-red-100 text-red-700 border-red-200";
     default:
-      return "bg-gray-50 text-gray-700 border-gray-200";
+      return "bg-gray-100 text-gray-700 border-gray-200";
   }
+}
+
+function cardStyle(status: string) {
+  switch (status) {
+    case "ปกติ":
+      return "border-green-200 bg-green-50";
+    case "เฝ้าดู":
+      return "border-yellow-200 bg-yellow-50";
+    case "ใกล้หมด":
+      return "border-orange-200 bg-orange-50";
+    case "หมด":
+      return "border-red-200 bg-red-50";
+    default:
+      return "border-gray-200 bg-white";
+  }
+}
+
+function bangkokDateStr(d: Date) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(d);
+}
+
+function isCheckedToday(lastCheckedAt: string | null): boolean {
+  if (!lastCheckedAt) return false;
+  return bangkokDateStr(new Date(lastCheckedAt)) === bangkokDateStr(new Date());
+}
+
+function getDriveThumbnail(url: string | null): string | null {
+  if (!url) return null;
+  const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
+  if (!match) return null;
+  return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+}
+
+function StockThumb({ url, name }: { url: string | null; name: string }) {
+  const [error, setError] = useState(false);
+  const src = !error ? getDriveThumbnail(url) : null;
+
+  if (!src) {
+    return (
+      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg bg-forest/10 text-lg">
+        📦
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={name}
+      width={48}
+      height={48}
+      onError={() => setError(true)}
+      className="h-12 w-12 flex-shrink-0 rounded-lg bg-forest/5 object-cover"
+    />
+  );
 }
 
 export default function StockTab() {
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("ทั้งหมด");
+  const [activeFilter, setActiveFilter] = useState<Filter>("ทั้งหมด");
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [notifying, setNotifying] = useState(false);
 
   async function loadItems() {
     try {
@@ -76,15 +137,19 @@ export default function StockTab() {
       });
       const data = await res.json();
       if (res.ok) {
+        const nowIso = new Date().toISOString();
         setItems((prev) =>
           prev.map((it) => {
             if (it.id !== id) return it;
+            if (action === "confirm") {
+              return { ...it, last_checked_at: nowIso };
+            }
             if (action === "set_level") {
-              return { ...it, level_value: value, status: data.status };
+              return { ...it, level_value: value, status: data.status, last_checked_at: nowIso };
             }
             const newCount =
               action === "delta" ? Math.max(0, (it.count_value ?? 0) + value) : value;
-            return { ...it, count_value: newCount, status: data.status };
+            return { ...it, count_value: newCount, status: data.status, last_checked_at: nowIso };
           })
         );
       }
@@ -95,9 +160,36 @@ export default function StockTab() {
     }
   }
 
-  const categories = ["ทั้งหมด", ...CATEGORY_ORDER.filter((c) => items.some((it) => it.category === c))];
-  const visibleItems =
-    activeCategory === "ทั้งหมด" ? items : items.filter((it) => it.category === activeCategory);
+  async function sendNotify() {
+    setNotifying(true);
+    try {
+      const res = await fetch("/api/stock/notify", { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        alert(`ส่งแจ้งเตือนไป Discord แล้ว (${data.count} รายการ)`);
+      } else {
+        alert("ส่งไม่สำเร็จ: " + (data.error || ""));
+      }
+    } catch (err) {
+      alert("ส่งไม่สำเร็จ");
+    } finally {
+      setNotifying(false);
+    }
+  }
+
+  const categories = [
+    "ทั้งหมด",
+    ...CATEGORY_ORDER.filter((c) => items.some((it) => it.category === c))
+  ];
+
+  const lowCount = items.filter((it) => it.status === "ใกล้หมด" || it.status === "หมด").length;
+
+  const visibleItems = items.filter((it) => {
+    if (activeCategory !== "ทั้งหมด" && it.category !== activeCategory) return false;
+    if (activeFilter === "ยังไม่เช็ค" && isCheckedToday(it.last_checked_at)) return false;
+    if (activeFilter === "ใกล้หมด" && it.status !== "ใกล้หมด" && it.status !== "หมด") return false;
+    return true;
+  });
 
   if (loading) {
     return <p className="text-ink/50">กำลังโหลดข้อมูลสต็อก...</p>;
@@ -105,6 +197,33 @@ export default function StockTab() {
 
   return (
     <div>
+      {/* แถบกรอง: ยังไม่เช็ค / ใกล้หมด */}
+      <div className="mb-3 flex gap-4 border-b border-forest/10">
+        {FILTERS.map((f) => (
+          <button
+            key={f}
+            onClick={() => setActiveFilter(f)}
+            className={`border-b-2 pb-2 text-sm font-medium ${
+              activeFilter === f ? "border-forest text-forestDark" : "border-transparent text-ink/40"
+            }`}
+          >
+            {f}
+            {f === "ใกล้หมด" && lowCount > 0 ? ` (${lowCount})` : ""}
+          </button>
+        ))}
+      </div>
+
+      {activeFilter === "ใกล้หมด" && lowCount > 0 && (
+        <button
+          onClick={sendNotify}
+          disabled={notifying}
+          className="mb-4 rounded-full bg-[#8B3A2B] px-4 py-2 text-sm font-medium text-sand"
+        >
+          {notifying ? "กำลังส่ง..." : `🔔 ส่งแจ้งเตือน ${lowCount} รายการไป Discord`}
+        </button>
+      )}
+
+      {/* แถบหมวดหมู่ */}
       <div className="mb-4 flex flex-wrap gap-2">
         {categories.map((cat) => (
           <button
@@ -121,73 +240,98 @@ export default function StockTab() {
         ))}
       </div>
 
+      {visibleItems.length === 0 && (
+        <p className="text-ink/50">ไม่มีรายการในหมวดนี้</p>
+      )}
+
       <div className="space-y-3">
-        {visibleItems.map((item) => (
-          <div
-            key={item.id}
-            className="flex items-center gap-3 rounded-xl border border-forest/15 bg-white p-3"
-          >
-            {item.photo_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={item.photo_url}
-                alt={item.name}
-                className="h-12 w-12 flex-shrink-0 rounded-lg object-cover"
-              />
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-ink">{item.name}</p>
-              <p className="text-xs text-ink/40">{item.category}</p>
-            </div>
-
-            <span
-              className={`flex-shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${statusStyle(
-                item.status
-              )}`}
+        {visibleItems.map((item) => {
+          const checked = isCheckedToday(item.last_checked_at);
+          return (
+            <div
+              key={item.id}
+              className={`rounded-xl border p-3 transition-colors ${
+                checked ? cardStyle(item.status) : "border-gray-200 bg-white"
+              }`}
             >
-              {item.status}
-            </span>
-
-            {item.count_method === "level" ? (
-              <div className="flex flex-shrink-0 gap-1">
-                {LEVELS.map((lv) => (
-                  <button
-                    key={lv}
-                    disabled={savingId === item.id}
-                    onClick={() => updateItem(item.id, "set_level", lv)}
-                    className={`rounded-full border px-3 py-1 text-xs ${
-                      item.level_value === lv
-                        ? "border-forest bg-forest text-sand"
-                        : "border-forest/20 text-ink/60"
-                    }`}
+              <div className="flex items-center gap-3">
+                <StockThumb url={item.photo_url} name={item.name} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium text-ink">{item.name}</p>
+                  <p className="text-xs text-ink/40">{item.category}</p>
+                </div>
+                {checked ? (
+                  <span
+                    className={`flex-shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${badgeStyle(
+                      item.status
+                    )}`}
                   >
-                    {lv}
-                  </button>
-                ))}
+                    {item.status}
+                  </span>
+                ) : (
+                  <span className="flex-shrink-0 rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500">
+                    ยังไม่เช็ค
+                  </span>
+                )}
               </div>
-            ) : (
-              <div className="flex flex-shrink-0 items-center gap-2">
+
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                {item.count_method === "level" ? (
+                  <div className="flex flex-wrap gap-1">
+                    {LEVELS.map((lv) => (
+                      <button
+                        key={lv}
+                        disabled={savingId === item.id}
+                        onClick={() => updateItem(item.id, "set_level", lv)}
+                        className={`rounded-full border px-3 py-1 text-xs ${
+                          item.level_value === lv
+                            ? "border-forest bg-forest text-sand"
+                            : "border-forest/20 text-ink/60"
+                        }`}
+                      >
+                        {lv}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      disabled={savingId === item.id}
+                      onClick={() => updateItem(item.id, "delta", -1)}
+                      className="h-8 w-8 rounded-full border border-forest/20 text-lg text-forestDark"
+                    >
+                      −
+                    </button>
+                    <span className="w-16 text-center text-sm text-ink">
+                      {item.count_value ?? 0} {item.unit}
+                    </span>
+                    <button
+                      disabled={savingId === item.id}
+                      onClick={() => updateItem(item.id, "delta", 1)}
+                      className="h-8 w-8 rounded-full border border-forest/20 text-lg text-forestDark"
+                    >
+                      +
+                    </button>
+                  </div>
+                )}
+
                 <button
                   disabled={savingId === item.id}
-                  onClick={() => updateItem(item.id, "delta", -1)}
-                  className="h-8 w-8 rounded-full border border-forest/20 text-lg text-forestDark"
+                  onClick={() => updateItem(item.id, "confirm", null)}
+                  className="text-xs text-ink/40 underline"
                 >
-                  −
-                </button>
-                <span className="w-14 text-center text-sm text-ink">
-                  {item.count_value ?? 0} {item.unit}
-                </span>
-                <button
-                  disabled={savingId === item.id}
-                  onClick={() => updateItem(item.id, "delta", 1)}
-                  className="h-8 w-8 rounded-full border border-forest/20 text-lg text-forestDark"
-                >
-                  +
+                  ยืนยันไม่เปลี่ยนแปลง
                 </button>
               </div>
-            )}
-          </div>
-        ))}
+
+              {checked && item.checked_by && (
+                <p className="mt-1 text-right text-[10px] text-ink/30">
+                  เช็คโดย {item.checked_by}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
