@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase, MenuItem, OptionGroup } from "../lib/supabaseClient";
+import { getStoreStatus, StoreStatus } from "../lib/storeHours";
 
 type CartLine = {
   key: string;
@@ -38,6 +39,12 @@ function MenuPageInner() {
     : typeParam === "takeaway"
     ? "takeaway"
     : "other";
+
+  const [storeStatus, setStoreStatus] = useState<StoreStatus | null>(null);
+
+  useEffect(() => {
+    getStoreStatus().then(setStoreStatus);
+  }, []);
 
   const [takeawayConfirmed, setTakeawayConfirmed] = useState(false);
   const [customerName, setCustomerName] = useState("");
@@ -229,6 +236,32 @@ function MenuPageInner() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (storeStatus && !storeStatus.isOpen) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-sand px-6">
+        <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-sm">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo-v2.png"
+            alt="SiS HERE"
+            className="mx-auto mb-4 h-16 w-16 rounded-full object-cover"
+          />
+          <h1 className="mb-2 font-display text-2xl font-semibold text-forestDark">
+            ขออภัย ร้านปิดอยู่ตอนนี้
+          </h1>
+          <p className="text-sm text-ink/60">
+            {storeStatus.todayHours
+              ? `วันนี้ร้านเปิดเวลา ${storeStatus.todayHours.open} - ${storeStatus.todayHours.close} น.`
+              : "วันนี้ร้านหยุดครับ"}
+          </p>
+          <p className="mt-1 text-sm text-ink/60">
+            กรุณาแวะมาใหม่ในช่วงเวลาเปิดร้านนะครับ
+          </p>
+        </div>
+      </main>
+    );
   }
 
   if (orderType === "takeaway" && !takeawayConfirmed) {
