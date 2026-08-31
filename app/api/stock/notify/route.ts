@@ -49,7 +49,7 @@ export async function POST() {
   }
 
   const content = parts.join("\n").trim();
-  const webhookUrl = process.env.DISCORD_WEBHOOK_URL as string;
+  const webhookUrl = process.env.DISCORD_STOCK_WEBHOOK_URL as string;
 
   const res = await fetch(webhookUrl, {
     method: "POST",
