@@ -358,7 +358,7 @@ export default function StockTab() {
                   onClick={() => updateItem(item.id, "confirm", null)}
                   className="flex-shrink-0 rounded-full border border-forest/30 bg-forest/5 px-3 py-1.5 text-xs font-medium text-forestDark"
                 >
-                  ✓ ไม่เปลี่ยนแปลง
+                  ✓ ยืนยัน
                 </button>
               </div>
 
