@@ -217,7 +217,8 @@ export default function StockTab() {
         <button
           onClick={sendNotify}
           disabled={notifying}
-          className="mb-4 rounded-full bg-[#8B3A2B] px-4 py-2 text-sm font-medium text-white"
+          style={{ backgroundColor: "#8B3A2B" }}
+          className="mb-4 rounded-full px-4 py-2 text-sm font-medium text-white"
         >
           {notifying ? "กำลังส่ง..." : `🔔 ส่งแจ้งเตือน ${lowCount} รายการไป Discord`}
         </button>
