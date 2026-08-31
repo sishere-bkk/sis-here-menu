@@ -33,33 +33,20 @@ const LEVELS = ["เยอะ", "ครึ่ง", "ใกล้หมด", "ห
 const FILTERS = ["ทั้งหมด", "ยังไม่เช็ค", "ใกล้หมด"] as const;
 type Filter = (typeof FILTERS)[number];
 
-function badgeStyle(status: string) {
-  switch (status) {
-    case "ปกติ":
-      return "bg-green-100 text-green-700 border-green-200";
-    case "เฝ้าดู":
-      return "bg-yellow-100 text-yellow-700 border-yellow-200";
-    case "ใกล้หมด":
-      return "bg-orange-100 text-orange-700 border-orange-200";
-    case "หมด":
-      return "bg-red-100 text-red-700 border-red-200";
-    default:
-      return "bg-gray-100 text-gray-700 border-gray-200";
-  }
-}
+type StatusColors = { bg: string; border: string; text: string };
 
-function cardStyle(status: string) {
+function statusColors(status: string): StatusColors {
   switch (status) {
     case "ปกติ":
-      return "border-green-200 bg-green-50";
+      return { bg: "#f0fdf4", border: "#bbf7d0", text: "#15803d" };
     case "เฝ้าดู":
-      return "border-yellow-200 bg-yellow-50";
+      return { bg: "#fefce8", border: "#fde68a", text: "#a16207" };
     case "ใกล้หมด":
-      return "border-orange-200 bg-orange-50";
+      return { bg: "#fff7ed", border: "#fed7aa", text: "#c2410c" };
     case "หมด":
-      return "border-red-200 bg-red-50";
+      return { bg: "#fef2f2", border: "#fecaca", text: "#b91c1c" };
     default:
-      return "border-gray-200 bg-white";
+      return { bg: "#f9fafb", border: "#e5e7eb", text: "#374151" };
   }
 }
 
@@ -108,8 +95,9 @@ export default function StockTab() {
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState<string>("ทั้งหมด");
   const [activeFilter, setActiveFilter] = useState<Filter>("ทั้งหมด");
-  const [savingId, setSavingId] = useState<string | null>(null);
   const [notifying, setNotifying] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   async function loadItems() {
     try {
@@ -127,37 +115,60 @@ export default function StockTab() {
     loadItems();
   }, []);
 
-  async function updateItem(id: string, action: string, value: any) {
-    setSavingId(id);
-    try {
-      const res = await fetch("/api/stock/update", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, action, value })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        const nowIso = new Date().toISOString();
-        setItems((prev) =>
-          prev.map((it) => {
-            if (it.id !== id) return it;
-            if (action === "confirm") {
-              return { ...it, last_checked_at: nowIso };
-            }
-            if (action === "set_level") {
-              return { ...it, level_value: value, status: data.status, last_checked_at: nowIso };
-            }
-            const newCount =
-              action === "delta" ? Math.max(0, (it.count_value ?? 0) + value) : value;
-            return { ...it, count_value: newCount, status: data.status, last_checked_at: nowIso };
-          })
-        );
-      }
-    } catch (err) {
-      // ignore
-    } finally {
-      setSavingId(null);
+  // อัปเดตหน้าจอทันที (optimistic) แล้วค่อยยิง request ไปเบื้องหลัง ไม่ต้องรอ
+  function updateItem(id: string, action: string, value: any) {
+    const nowIso = new Date().toISOString();
+    let computedStatus = "";
+
+    setItems((prev) =>
+      prev.map((it) => {
+        if (it.id !== id) return it;
+
+        if (action === "confirm") {
+          return { ...it, last_checked_at: nowIso };
+        }
+
+        if (action === "set_level") {
+          const map: Record<string, string> = {
+            เยอะ: "ปกติ",
+            ครึ่ง: "เฝ้าดู",
+            ใกล้หมด: "ใกล้หมด",
+            หมด: "หมด"
+          };
+          computedStatus = map[value] || it.status;
+          return { ...it, level_value: value, status: computedStatus, last_checked_at: nowIso };
+        }
+
+        const newCount =
+          action === "delta" ? Math.max(0, (it.count_value ?? 0) + value) : Math.max(0, Number(value));
+        computedStatus =
+          newCount <= 0 ? "หมด" : it.min_value !== null && newCount <= it.min_value ? "ใกล้หมด" : "ปกติ";
+        return { ...it, count_value: newCount, status: computedStatus, last_checked_at: nowIso };
+      })
+    );
+
+    // ยิงไปเซิร์ฟเวอร์เบื้องหลัง ไม่ block หน้าจอ
+    fetch("/api/stock/update", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action, value })
+    }).catch(() => {
+      // ถ้าพลาดจริงๆ ค่อยโหลดข้อมูลใหม่ทับ
+      loadItems();
+    });
+  }
+
+  function startEdit(item: StockItem) {
+    setEditingId(item.id);
+    setEditValue(String(item.count_value ?? 0));
+  }
+
+  function commitEdit(id: string) {
+    const num = Number(editValue);
+    if (!Number.isNaN(num)) {
+      updateItem(id, "set_count", num);
     }
+    setEditingId(null);
   }
 
   async function sendNotify() {
@@ -252,12 +263,16 @@ export default function StockTab() {
       <div className="space-y-3">
         {visibleItems.map((item) => {
           const checked = isCheckedToday(item.last_checked_at);
+          const colors = statusColors(item.status);
+
           return (
             <div
               key={item.id}
-              className={`rounded-xl border p-3 transition-colors ${
-                checked ? cardStyle(item.status) : "border-gray-200 bg-white"
-              }`}
+              className="rounded-xl border p-3 transition-colors"
+              style={{
+                backgroundColor: checked ? colors.bg : "#ffffff",
+                borderColor: checked ? colors.border : "#e5e7eb"
+              }}
             >
               <div className="flex items-center gap-3">
                 <StockThumb url={item.photo_url} name={item.name} />
@@ -267,9 +282,12 @@ export default function StockTab() {
                 </div>
                 {checked ? (
                   <span
-                    className={`flex-shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium ${badgeStyle(
-                      item.status
-                    )}`}
+                    className="flex-shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium"
+                    style={{
+                      backgroundColor: colors.bg,
+                      borderColor: colors.border,
+                      color: colors.text
+                    }}
                   >
                     {item.status}
                   </span>
@@ -286,7 +304,6 @@ export default function StockTab() {
                     {LEVELS.map((lv) => (
                       <button
                         key={lv}
-                        disabled={savingId === item.id}
                         onClick={() => updateItem(item.id, "set_level", lv)}
                         className={`rounded-full border px-3 py-1 text-xs ${
                           item.level_value === lv
@@ -301,17 +318,34 @@ export default function StockTab() {
                 ) : (
                   <div className="flex items-center gap-2">
                     <button
-                      disabled={savingId === item.id}
                       onClick={() => updateItem(item.id, "delta", -1)}
                       className="h-8 w-8 rounded-full border border-forest/20 text-lg text-forestDark"
                     >
                       −
                     </button>
-                    <span className="w-16 text-center text-sm text-ink">
-                      {item.count_value ?? 0} {item.unit}
-                    </span>
+
+                    {editingId === item.id ? (
+                      <input
+                        type="number"
+                        autoFocus
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onBlur={() => commitEdit(item.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEdit(item.id);
+                        }}
+                        className="w-16 rounded-lg border border-forest/30 px-1 py-0.5 text-center text-sm"
+                      />
+                    ) : (
+                      <button
+                        onClick={() => startEdit(item)}
+                        className="w-16 rounded-lg border border-transparent text-center text-sm text-ink underline decoration-dotted"
+                      >
+                        {item.count_value ?? 0} {item.unit}
+                      </button>
+                    )}
+
                     <button
-                      disabled={savingId === item.id}
                       onClick={() => updateItem(item.id, "delta", 1)}
                       className="h-8 w-8 rounded-full border border-forest/20 text-lg text-forestDark"
                     >
@@ -321,11 +355,10 @@ export default function StockTab() {
                 )}
 
                 <button
-                  disabled={savingId === item.id}
                   onClick={() => updateItem(item.id, "confirm", null)}
-                  className="text-xs text-ink/40 underline"
+                  className="flex-shrink-0 rounded-full border border-forest/30 bg-forest/5 px-3 py-1.5 text-xs font-medium text-forestDark"
                 >
-                  ยืนยันไม่เปลี่ยนแปลง
+                  ✓ ยืนยันไม่เปลี่ยนแปลง
                 </button>
               </div>
 
