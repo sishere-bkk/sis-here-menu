@@ -224,13 +224,16 @@ export default function StockTab() {
       )}
 
       {/* แถบหมวดหมู่ */}
-      <div className="mb-4 flex gap-2" style={{ flexWrap: "wrap" }}>
+      <div
+        className="mb-4"
+        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}
+      >
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            style={{ whiteSpace: "nowrap", flexShrink: 0 }}
-            className={`rounded-full border px-5 py-2.5 text-base font-medium ${
+            style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            className={`rounded-full border px-2 py-2.5 text-sm font-medium ${
               activeCategory === cat
                 ? "border-forest bg-forest text-sand"
                 : "border-forest/20 text-forestDark"
