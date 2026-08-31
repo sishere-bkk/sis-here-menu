@@ -38,13 +38,13 @@ type StatusColors = { bg: string; border: string; text: string };
 function statusColors(status: string): StatusColors {
   switch (status) {
     case "ปกติ":
-      return { bg: "#f0fdf4", border: "#bbf7d0", text: "#15803d" };
+      return { bg: "#dcfce7", border: "#4ade80", text: "#166534" };
     case "เฝ้าดู":
-      return { bg: "#fefce8", border: "#fde68a", text: "#a16207" };
+      return { bg: "#fef9c3", border: "#facc15", text: "#854d0e" };
     case "ใกล้หมด":
-      return { bg: "#fff7ed", border: "#fed7aa", text: "#c2410c" };
+      return { bg: "#ffedd5", border: "#fb923c", text: "#9a3412" };
     case "หมด":
-      return { bg: "#fef2f2", border: "#fecaca", text: "#b91c1c" };
+      return { bg: "#fee2e2", border: "#f87171", text: "#991b1b" };
     default:
       return { bg: "#f9fafb", border: "#e5e7eb", text: "#374151" };
   }
@@ -282,7 +282,7 @@ export default function StockTab() {
                 </div>
                 {checked ? (
                   <span
-                    className="flex-shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium"
+                    className="flex-shrink-0 rounded-full border-2 px-3.5 py-1.5 text-xs font-medium"
                     style={{
                       backgroundColor: colors.bg,
                       borderColor: colors.border,
@@ -292,7 +292,7 @@ export default function StockTab() {
                     {item.status}
                   </span>
                 ) : (
-                  <span className="flex-shrink-0 rounded-full border border-gray-300 bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-500">
+                  <span className="flex-shrink-0 rounded-full border-2 border-gray-300 bg-gray-100 px-3.5 py-1.5 text-xs font-medium text-gray-500">
                     ยังไม่เช็ค
                   </span>
                 )}
@@ -358,12 +358,15 @@ export default function StockTab() {
                   onClick={() => updateItem(item.id, "confirm", null)}
                   className="flex-shrink-0 rounded-full border border-forest/30 bg-forest/5 px-3 py-1.5 text-xs font-medium text-forestDark"
                 >
-                  ✓ ยืนยันไม่เปลี่ยนแปลง
+                  ✓ ไม่เปลี่ยนแปลง
                 </button>
               </div>
 
               {checked && item.checked_by && (
-                <p className="mt-1 text-right text-[10px] text-ink/30">
+                <p
+                  className="mt-1 text-right text-ink/30"
+                  style={{ fontSize: "9px" }}
+                >
                   เช็คโดย {item.checked_by}
                 </p>
               )}
