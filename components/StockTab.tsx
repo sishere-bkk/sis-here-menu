@@ -224,7 +224,7 @@ export default function StockTab() {
       )}
 
       {/* แถบหมวดหมู่ */}
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-4 flex gap-2" style={{ flexWrap: "wrap" }}>
         {categories.map((cat) => (
           <button
             key={cat}
