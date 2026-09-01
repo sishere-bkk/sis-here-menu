@@ -3,31 +3,57 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-type MenuItem = {
+type Item = {
   id: string;
-  name: string;
-  image_url: string | null;
+  label: string;
+  hasPhoto: boolean;
 };
 
 export default function UploadImagePage() {
-  const [items, setItems] = useState<MenuItem[]>([]);
+  const [target, setTarget] = useState<"menu" | "stock">("menu");
+  const [items, setItems] = useState<Item[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
 
-  // โหลดรายการเมนูทั้งหมดมาให้เลือก
+  // โหลดรายการใหม่ทุกครั้งที่สลับ เมนู/สต๊อก
   useEffect(() => {
-    supabase
-      .from("menu")
-      .select("id,name,image_url")
-      .order("name")
-      .then(({ data }) => {
-        if (data) setItems(data as MenuItem[]);
-      });
-  }, []);
+    setSelectedId("");
+    setPreview(null);
+    setMessage("");
 
-  // ย่อขนาดรูปในเครื่องก่อนส่งขึ้นเซิร์ฟเวอร์ ให้ไฟล์เล็กลงและโหลดเว็บเร็วขึ้น
+    if (target === "menu") {
+      supabase
+        .from("menu")
+        .select("id,name,image_url")
+        .order("name")
+        .then(({ data }) => {
+          if (data) {
+            setItems(
+              data.map((d) => ({ id: d.id, label: d.name, hasPhoto: !!d.image_url }))
+            );
+          }
+        });
+    } else {
+      supabase
+        .from("stock_items")
+        .select("id,name,category,photo_url")
+        .order("category")
+        .then(({ data }) => {
+          if (data) {
+            setItems(
+              data.map((d) => ({
+                id: d.id,
+                label: `[${d.category}] ${d.name}`,
+                hasPhoto: !!d.photo_url,
+              }))
+            );
+          }
+        });
+    }
+  }, [target]);
+
   function resizeImage(file: File, maxWidth = 900): Promise<Blob> {
     return new Promise((resolve, reject) => {
       const img = new Image();
@@ -55,7 +81,7 @@ export default function UploadImagePage() {
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !selectedId) {
-      setMessage("กรุณาเลือกเมนูก่อนเลือกรูป");
+      setMessage("กรุณาเลือกรายการก่อนเลือกรูป");
       return;
     }
 
@@ -68,13 +94,12 @@ export default function UploadImagePage() {
 
       const formData = new FormData();
       formData.append("file", resizedBlob, `${selectedId}.jpg`);
-      formData.append("menuId", selectedId);
 
-      const res = await fetch("/api/upload-menu-image", {
-        method: "POST",
-        body: formData,
-      });
+      const endpoint =
+        target === "menu" ? "/api/upload-menu-image" : "/api/upload-stock-image";
+      formData.append(target === "menu" ? "menuId" : "stockId", selectedId);
 
+      const res = await fetch(endpoint, { method: "POST", body: formData });
       if (!res.ok) throw new Error("upload failed");
 
       setStatus("done");
@@ -87,18 +112,47 @@ export default function UploadImagePage() {
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", padding: 20 }}>
-      <h1 style={{ fontSize: 20, marginBottom: 16 }}>อัปโหลดรูปเมนู</h1>
+      <h1 style={{ fontSize: 20, marginBottom: 16 }}>อัปโหลดรูป</h1>
 
-      <label style={{ display: "block", marginBottom: 8 }}>เลือกเมนู</label>
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+        <button
+          onClick={() => setTarget("menu")}
+          style={{
+            flex: 1,
+            padding: 10,
+            background: target === "menu" ? "#E8792F" : "#eee",
+            color: target === "menu" ? "#fff" : "#333",
+            border: "none",
+            borderRadius: 6,
+          }}
+        >
+          เมนู
+        </button>
+        <button
+          onClick={() => setTarget("stock")}
+          style={{
+            flex: 1,
+            padding: 10,
+            background: target === "stock" ? "#E8792F" : "#eee",
+            color: target === "stock" ? "#fff" : "#333",
+            border: "none",
+            borderRadius: 6,
+          }}
+        >
+          สต๊อก
+        </button>
+      </div>
+
+      <label style={{ display: "block", marginBottom: 8 }}>เลือกรายการ</label>
       <select
         value={selectedId}
         onChange={(e) => setSelectedId(e.target.value)}
         style={{ width: "100%", padding: 10, marginBottom: 16 }}
       >
-        <option value="">-- เลือกเมนู --</option>
+        <option value="">-- เลือกรายการ --</option>
         {items.map((item) => (
           <option key={item.id} value={item.id}>
-            {item.name} {item.image_url ? "(มีรูปแล้ว)" : "(ยังไม่มีรูป)"}
+            {item.label} {item.hasPhoto ? "(มีรูปแล้ว)" : "(ยังไม่มีรูป)"}
           </option>
         ))}
       </select>
