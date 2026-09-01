@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import StockTab from "../../components/StockTab";
 import UploadImageTab from "../../components/UploadImageTab";
+import DashboardTab from "../../components/DashboardTab";
+import TestOrderTab from "../../components/TestOrderTab";
+
+// เห็นแท็บ Dashboard / ทดสอบ ได้เฉพาะชื่อนี้เท่านั้น
+const OWNER_NAME = "พี่ดี๋";
 
 type OrderRow = {
   id: number;
@@ -54,10 +59,13 @@ function getCookie(name: string): string {
 
 export default function StaffPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"orders" | "stock" | "upload">("orders");
+  const [tab, setTab] = useState<
+    "orders" | "stock" | "upload" | "dashboard" | "test"
+  >("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
   const [staffName, setStaffName] = useState("");
+  const isOwner = staffName === OWNER_NAME;
 
   useEffect(() => {
     setStaffName(getCookie("staff_display_name"));
@@ -164,6 +172,28 @@ export default function StaffPage() {
           >
             📷 อัปโหลดรูป
           </button>
+          {isOwner && (
+            <>
+              <button
+                onClick={() => setTab("dashboard")}
+                style={{ whiteSpace: "nowrap" }}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
+                  tab === "dashboard" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+                }`}
+              >
+                📊 Dashboard
+              </button>
+              <button
+                onClick={() => setTab("test")}
+                style={{ whiteSpace: "nowrap" }}
+                className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
+                  tab === "test" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+                }`}
+              >
+                🧪 ทดสอบ
+              </button>
+            </>
+          )}
         </div>
 
         {tab === "orders" && (
@@ -236,6 +266,8 @@ export default function StaffPage() {
 
         {tab === "stock" && <StockTab />}
         {tab === "upload" && <UploadImageTab />}
+        {tab === "dashboard" && isOwner && <DashboardTab />}
+        {tab === "test" && isOwner && <TestOrderTab />}
       </div>
 
       {printOrder && (
