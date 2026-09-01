@@ -159,10 +159,10 @@ export default function UploadImageTab() {
         ))}
       </select>
 
+      {/* เอา capture="environment" ออก เพื่อให้ iPhone ขึ้นเมนูให้เลือกได้ ไม่บังคับเข้ากล้อง */}
       <input
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={handleFileChange}
         disabled={!selectedId || status === "uploading"}
         className="mb-3 block"
@@ -171,7 +171,17 @@ export default function UploadImageTab() {
       {selectedItem?.hasPhoto && (
         <button
           onClick={handleDelete}
-          className="mb-4 rounded-xl bg-red-600 px-4 py-2 text-sm text-white"
+          style={{
+            display: "inline-block",
+            marginBottom: 16,
+            padding: "8px 16px",
+            background: "#c0392b",
+            color: "#fff",
+            border: "none",
+            borderRadius: 10,
+            fontSize: 14,
+            fontWeight: 600,
+          }}
         >
           ลบรูปนี้
         </button>
