@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
-// ใช้ service role key เพราะต้องเขียนไฟล์เข้า storage และแก้ตาราง menu
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -20,7 +19,6 @@ export async function POST(req: NextRequest) {
     const fileName = `${menuId}-${Date.now()}.jpg`;
     const arrayBuffer = await file.arrayBuffer();
 
-    // อัปโหลดไฟล์เข้า bucket menu-images
     const { error: uploadError } = await supabaseAdmin.storage
       .from("menu-images")
       .upload(fileName, arrayBuffer, {
@@ -32,12 +30,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: uploadError.message }, { status: 500 });
     }
 
-    // ดึงลิงก์สาธารณะของรูปที่เพิ่งอัปโหลด
     const { data: urlData } = supabaseAdmin.storage
       .from("menu-images")
       .getPublicUrl(fileName);
 
-    // อัปเดตลิงก์รูปในตาราง menu
     const { error: updateError } = await supabaseAdmin
       .from("menu")
       .update({ image_url: urlData.publicUrl })
@@ -51,4 +47,17 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json({ error: "server error" }, { status: 500 });
   }
+}
+
+export async function DELETE(req: NextRequest) {
+  const menuId = req.nextUrl.searchParams.get("id");
+  if (!menuId) return NextResponse.json({ error: "missing id" }, { status: 400 });
+
+  const { error } = await supabaseAdmin
+    .from("menu")
+    .update({ image_url: null })
+    .eq("id", menuId);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
 }
