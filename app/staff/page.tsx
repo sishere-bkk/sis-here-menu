@@ -172,29 +172,30 @@ export default function StaffPage() {
           >
             📷 อัปโหลดรูป
           </button>
-          {isOwner && (
-            <>
-              <button
-                onClick={() => setTab("dashboard")}
-                style={{ whiteSpace: "nowrap" }}
-                className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
-                  tab === "dashboard" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
-                }`}
-              >
-                📊 Dashboard
-              </button>
-              <button
-                onClick={() => setTab("test")}
-                style={{ whiteSpace: "nowrap" }}
-                className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
-                  tab === "test" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
-                }`}
-              >
-                🧪 ทดสอบ
-              </button>
-            </>
-          )}
         </div>
+
+        {isOwner && (
+          <div className="mb-6 inline-flex flex-wrap gap-1 rounded-2xl bg-[#8B3A2B]/10 p-1">
+            <button
+              onClick={() => setTab("dashboard")}
+              style={{ whiteSpace: "nowrap" }}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
+                tab === "dashboard" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+              }`}
+            >
+              📊 Dashboard
+            </button>
+            <button
+              onClick={() => setTab("test")}
+              style={{ whiteSpace: "nowrap" }}
+              className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
+                tab === "test" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+              }`}
+            >
+              🧪 ทดสอบ
+            </button>
+          </div>
+        )}
 
         {tab === "orders" && (
           <>
