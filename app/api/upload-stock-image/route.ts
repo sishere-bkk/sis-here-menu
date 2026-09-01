@@ -6,6 +6,17 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+// ดึงรายการสต๊อกทั้งหมด (ต้องใช้ service role เพราะตารางนี้เปิด RLS ไว้)
+export async function GET() {
+  const { data, error } = await supabaseAdmin
+    .from("stock_items")
+    .select("id,name,category,photo_url")
+    .order("category");
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ items: data });
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -47,4 +58,18 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     return NextResponse.json({ error: "server error" }, { status: 500 });
   }
+}
+
+// ลบรูป: เอาลิงก์รูปออกจากตาราง (ไฟล์จริงใน storage จะค้างไว้เฉยๆ ไม่กระทบอะไร)
+export async function DELETE(req: NextRequest) {
+  const stockId = req.nextUrl.searchParams.get("id");
+  if (!stockId) return NextResponse.json({ error: "missing id" }, { status: 400 });
+
+  const { error } = await supabaseAdmin
+    .from("stock_items")
+    .update({ photo_url: null })
+    .eq("id", stockId);
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ success: true });
 }
