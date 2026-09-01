@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import StockTab from "../../components/StockTab";
+import UploadImageTab from "../../components/UploadImageTab";
 
 type OrderRow = {
   id: number;
@@ -53,7 +54,7 @@ function getCookie(name: string): string {
 
 export default function StaffPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"orders" | "stock">("orders");
+  const [tab, setTab] = useState<"orders" | "stock" | "upload">("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
   const [staffName, setStaffName] = useState("");
@@ -152,6 +153,14 @@ export default function StaffPage() {
           >
             📦 สต็อก
           </button>
+          <button
+            onClick={() => setTab("upload")}
+            className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+              tab === "upload" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+            }`}
+          >
+            📷 อัปโหลดรูป
+          </button>
         </div>
 
         {tab === "orders" && (
@@ -223,6 +232,7 @@ export default function StaffPage() {
         )}
 
         {tab === "stock" && <StockTab />}
+        {tab === "upload" && <UploadImageTab />}
       </div>
 
       {printOrder && (
