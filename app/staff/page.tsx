@@ -136,10 +136,11 @@ export default function StaffPage() {
           </div>
         </div>
 
-        <div className="mb-6 mt-3 inline-flex rounded-2xl bg-forest/10 p-1">
+        <div className="mb-6 mt-3 inline-flex flex-wrap gap-1 rounded-2xl bg-forest/10 p-1">
           <button
             onClick={() => setTab("orders")}
-            className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+            style={{ whiteSpace: "nowrap" }}
+            className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
               tab === "orders" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
@@ -147,7 +148,8 @@ export default function StaffPage() {
           </button>
           <button
             onClick={() => setTab("stock")}
-            className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+            style={{ whiteSpace: "nowrap" }}
+            className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
               tab === "stock" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
@@ -155,7 +157,8 @@ export default function StaffPage() {
           </button>
           <button
             onClick={() => setTab("upload")}
-            className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+            style={{ whiteSpace: "nowrap" }}
+            className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
               tab === "upload" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
