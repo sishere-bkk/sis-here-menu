@@ -17,33 +17,30 @@ export default function UploadImagePage() {
   const [status, setStatus] = useState<"idle" | "uploading" | "done" | "error">("idle");
   const [message, setMessage] = useState("");
 
-  // โหลดรายการใหม่ทุกครั้งที่สลับ เมนู/สต๊อก
   useEffect(() => {
     setSelectedId("");
     setPreview(null);
     setMessage("");
 
     if (target === "menu") {
+      // ตาราง menu อ่านตรงจากเบราว์เซอร์ได้ (เปิด public read ไว้)
       supabase
         .from("menu")
         .select("id,name,image_url")
         .order("name")
         .then(({ data }) => {
           if (data) {
-            setItems(
-              data.map((d) => ({ id: d.id, label: d.name, hasPhoto: !!d.image_url }))
-            );
+            setItems(data.map((d) => ({ id: d.id, label: d.name, hasPhoto: !!d.image_url })));
           }
         });
     } else {
-      supabase
-        .from("stock_items")
-        .select("id,name,category,photo_url")
-        .order("category")
-        .then(({ data }) => {
-          if (data) {
+      // ตาราง stock_items ปิด public read ไว้ ต้องดึงผ่าน API แทน
+      fetch("/api/upload-stock-image")
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.items) {
             setItems(
-              data.map((d) => ({
+              json.items.map((d: any) => ({
                 id: d.id,
                 label: `[${d.category}] ${d.name}`,
                 hasPhoto: !!d.photo_url,
@@ -95,8 +92,7 @@ export default function UploadImagePage() {
       const formData = new FormData();
       formData.append("file", resizedBlob, `${selectedId}.jpg`);
 
-      const endpoint =
-        target === "menu" ? "/api/upload-menu-image" : "/api/upload-stock-image";
+      const endpoint = target === "menu" ? "/api/upload-menu-image" : "/api/upload-stock-image";
       formData.append(target === "menu" ? "menuId" : "stockId", selectedId);
 
       const res = await fetch(endpoint, { method: "POST", body: formData });
@@ -104,11 +100,31 @@ export default function UploadImagePage() {
 
       setStatus("done");
       setMessage("อัปโหลดรูปสำเร็จแล้ว");
+      setItems((prev) => prev.map((it) => (it.id === selectedId ? { ...it, hasPhoto: true } : it)));
     } catch (err) {
       setStatus("error");
       setMessage("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง");
     }
   }
+
+  async function handleDelete() {
+    if (!selectedId) return;
+    const endpoint =
+      target === "menu"
+        ? `/api/upload-menu-image?id=${selectedId}`
+        : `/api/upload-stock-image?id=${selectedId}`;
+
+    const res = await fetch(endpoint, { method: "DELETE" });
+    if (res.ok) {
+      setMessage("ลบรูปแล้ว");
+      setPreview(null);
+      setItems((prev) => prev.map((it) => (it.id === selectedId ? { ...it, hasPhoto: false } : it)));
+    } else {
+      setMessage("ลบไม่สำเร็จ");
+    }
+  }
+
+  const selectedItem = items.find((i) => i.id === selectedId);
 
   return (
     <div style={{ maxWidth: 480, margin: "0 auto", padding: 20 }}>
@@ -163,15 +179,28 @@ export default function UploadImagePage() {
         capture="environment"
         onChange={handleFileChange}
         disabled={!selectedId || status === "uploading"}
-        style={{ marginBottom: 16 }}
+        style={{ marginBottom: 12 }}
       />
 
+      {selectedItem?.hasPhoto && (
+        <button
+          onClick={handleDelete}
+          style={{
+            display: "block",
+            padding: "8px 12px",
+            marginBottom: 16,
+            background: "#c0392b",
+            color: "#fff",
+            border: "none",
+            borderRadius: 6,
+          }}
+        >
+          ลบรูปนี้
+        </button>
+      )}
+
       {preview && (
-        <img
-          src={preview}
-          alt="preview"
-          style={{ width: "100%", borderRadius: 8, marginBottom: 16 }}
-        />
+        <img src={preview} alt="preview" style={{ width: "100%", borderRadius: 8, marginBottom: 16 }} />
       )}
 
       {status === "uploading" && <p>กำลังอัปโหลด...</p>}
