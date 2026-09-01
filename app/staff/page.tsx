@@ -144,11 +144,11 @@ export default function StaffPage() {
           </div>
         </div>
 
-        <div className="mb-6 mt-3 inline-flex flex-wrap gap-1 rounded-2xl bg-forest/10 p-1">
+        <div className="mb-2 inline-flex flex-wrap gap-1 rounded-2xl bg-forest/10 p-1">
           <button
             onClick={() => setTab("orders")}
             style={{ whiteSpace: "nowrap" }}
-            className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
+            className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
               tab === "orders" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
@@ -157,29 +157,29 @@ export default function StaffPage() {
           <button
             onClick={() => setTab("stock")}
             style={{ whiteSpace: "nowrap" }}
-            className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
+            className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
               tab === "stock" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
             📦 สต็อก
-          </button>
-          <button
-            onClick={() => setTab("upload")}
-            style={{ whiteSpace: "nowrap" }}
-            className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
-              tab === "upload" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
-            }`}
-          >
-            📷 อัปโหลดรูป
           </button>
         </div>
 
         {isOwner && (
           <div className="mb-6 inline-flex flex-wrap gap-1 rounded-2xl bg-[#8B3A2B]/10 p-1">
             <button
+              onClick={() => setTab("upload")}
+              style={{ whiteSpace: "nowrap" }}
+              className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+                tab === "upload" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+              }`}
+            >
+              📷 อัปโหลดรูป
+            </button>
+            <button
               onClick={() => setTab("dashboard")}
               style={{ whiteSpace: "nowrap" }}
-              className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
+              className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
                 tab === "dashboard" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
               }`}
             >
@@ -188,7 +188,7 @@ export default function StaffPage() {
             <button
               onClick={() => setTab("test")}
               style={{ whiteSpace: "nowrap" }}
-              className={`rounded-xl px-3 py-2 text-xs font-semibold transition-colors sm:px-6 sm:py-2.5 sm:text-sm ${
+              className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
                 tab === "test" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
               }`}
             >
@@ -266,7 +266,7 @@ export default function StaffPage() {
         )}
 
         {tab === "stock" && <StockTab />}
-        {tab === "upload" && <UploadImageTab />}
+        {tab === "upload" && isOwner && <UploadImageTab />}
         {tab === "dashboard" && isOwner && <DashboardTab />}
         {tab === "test" && isOwner && <TestOrderTab />}
       </div>
