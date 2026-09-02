@@ -112,7 +112,26 @@ export default function StaffPage() {
     await fetch("/api/staff-orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id })
+      body: JSON.stringify({ id, action: "print" })
+    });
+    // ไม่เอาออกจากคิว — พิมพ์ได้หลายครั้ง Order ยังค้างจนกว่าจะกด "รับออเดอร์" หรือ "ยกเลิก"
+  }
+
+  async function handleAccept(id: number) {
+    await fetch("/api/staff-orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "accept" })
+    });
+    setOrders((prev) => prev.filter((o) => o.id !== id));
+  }
+
+  async function handleCancel(id: number) {
+    if (!confirm("ยืนยันยกเลิกออเดอร์นี้?")) return;
+    await fetch("/api/staff-orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "cancel" })
     });
     setOrders((prev) => prev.filter((o) => o.id !== id));
   }
@@ -220,12 +239,6 @@ export default function StaffPage() {
                         {formatDateTime(o.created_at)}
                       </p>
                     </div>
-                    <button
-                      onClick={() => setPrintOrder(o)}
-                      className="rounded-full bg-forest px-5 py-2 text-sm font-medium text-sand"
-                    >
-                      พิมพ์บิล
-                    </button>
                   </div>
 
                   <div className="mt-2 space-y-1 border-t border-forest/10 pt-2 text-sm">
@@ -255,6 +268,27 @@ export default function StaffPage() {
                     <p className="pt-1 text-right font-semibold text-[#8B3A2B]">
                       รวม {orderTotal(o).toFixed(0)} บาท
                     </p>
+                  </div>
+
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => setPrintOrder(o)}
+                      className="flex-1 rounded-full bg-forest px-3 py-2 text-xs font-medium text-sand sm:text-sm"
+                    >
+                      🖨️ พิมพ์บิล
+                    </button>
+                    <button
+                      onClick={() => handleAccept(o.id)}
+                      className="flex-1 rounded-full bg-green-700 px-3 py-2 text-xs font-medium text-white sm:text-sm"
+                    >
+                      ✅ รับออเดอร์
+                    </button>
+                    <button
+                      onClick={() => handleCancel(o.id)}
+                      className="flex-1 rounded-full bg-red-700 px-3 py-2 text-xs font-medium text-white sm:text-sm"
+                    >
+                      ❌ ยกเลิก
+                    </button>
                   </div>
                 </div>
               ))}
