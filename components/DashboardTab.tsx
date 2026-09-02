@@ -21,12 +21,17 @@ export default function DashboardTab() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch("/api/dashboard-summary")
-      .then((res) => res.json())
-      .then((json) => {
-        setData(json);
-        setLoading(false);
-      });
+    function load() {
+      fetch("/api/dashboard-summary")
+        .then((res) => res.json())
+        .then((json) => {
+          setData(json);
+          setLoading(false);
+        });
+    }
+    load();
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading) return <p className="text-ink/50">กำลังโหลด...</p>;
