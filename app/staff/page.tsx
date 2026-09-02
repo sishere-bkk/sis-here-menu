@@ -166,11 +166,10 @@ export default function StaffPage() {
         </div>
 
         {isOwner && (
-          <div className="mb-6 inline-flex flex-wrap gap-1 rounded-2xl bg-[#8B3A2B]/10 p-1">
+          <div className="mb-6 flex flex-col gap-1 rounded-2xl bg-[#8B3A2B]/10 p-1">
             <button
               onClick={() => setTab("upload")}
-              style={{ whiteSpace: "nowrap" }}
-              className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+              className={`w-full rounded-xl px-4 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
                 tab === "upload" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
               }`}
             >
@@ -178,8 +177,7 @@ export default function StaffPage() {
             </button>
             <button
               onClick={() => setTab("dashboard")}
-              style={{ whiteSpace: "nowrap" }}
-              className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+              className={`w-full rounded-xl px-4 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
                 tab === "dashboard" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
               }`}
             >
@@ -187,8 +185,7 @@ export default function StaffPage() {
             </button>
             <button
               onClick={() => setTab("test")}
-              style={{ whiteSpace: "nowrap" }}
-              className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+              className={`w-full rounded-xl px-4 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
                 tab === "test" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
               }`}
             >
