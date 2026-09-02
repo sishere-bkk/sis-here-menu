@@ -166,18 +166,10 @@ export default function StaffPage() {
         </div>
 
         {isOwner && (
-          <div className="mb-6 flex flex-col gap-1 rounded-2xl bg-[#8B3A2B]/10 p-1">
-            <button
-              onClick={() => setTab("upload")}
-              className={`w-full rounded-xl px-4 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
-                tab === "upload" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-              }`}
-            >
-              📷 อัปโหลดรูป
-            </button>
+          <div className="mb-6 flex gap-1 rounded-2xl bg-[#8B3A2B]/10 p-1">
             <button
               onClick={() => setTab("dashboard")}
-              className={`w-full rounded-xl px-4 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
+              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
                 tab === "dashboard" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
               }`}
             >
@@ -185,11 +177,19 @@ export default function StaffPage() {
             </button>
             <button
               onClick={() => setTab("test")}
-              className={`w-full rounded-xl px-4 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
+              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
                 tab === "test" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
               }`}
             >
               🧪 ทดสอบ
+            </button>
+            <button
+              onClick={() => setTab("upload")}
+              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
+                tab === "upload" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+              }`}
+            >
+              📷 อัปโหลดรูป
             </button>
           </div>
         )}
