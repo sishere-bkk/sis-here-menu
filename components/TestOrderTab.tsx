@@ -3,12 +3,14 @@
 import { useState } from "react";
 
 const SAMPLE_MENU = [
-  { name: "ข้าวผัดหมู", price: 60 },
-  { name: "ผัดกะเพราไก่", price: 55 },
-  { name: "ต้มยำกุ้ง", price: 120 },
-  { name: "คาโบนาร่า", price: 89 },
-  { name: "ชาเย็น", price: 30 },
+  { name: "ข้าวผัดหมู", price: 60, options: ["ไม่ใส่แตงกวา", "เผ็ดน้อย", "เผ็ดมาก"] },
+  { name: "ผัดกะเพราไก่", price: 55, options: ["ไข่ดาว +10", "ไม่ใส่พริก"] },
+  { name: "ต้มยำกุ้ง", price: 120, options: ["น้ำข้น", "น้ำใส"] },
+  { name: "คาโบนาร่า", price: 89, options: ["เบคอนเพิ่ม +20"] },
+  { name: "ชาเย็น", price: 30, options: ["หวานน้อย", "ไม่ใส่น้ำแข็ง"] },
 ];
+
+const SAMPLE_NOTES = ["ขอเผ็ดน้อยหน่อยค่ะ", "แพ้ถั่ว", "ห่อแยก", ""];
 
 function randomItem<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
@@ -19,12 +21,14 @@ function buildRandomOrder() {
   const items = Array.from({ length: itemCount }).map(() => {
     const menuItem = randomItem(SAMPLE_MENU);
     const qty = 1 + Math.floor(Math.random() * 2);
+    // สุ่มว่าจะมี modifier ไหม (70% โอกาสมี) เพื่อเทสทั้งเคสมีและไม่มี
+    const hasModifier = Math.random() < 0.7;
     return {
       name: menuItem.name,
       qty,
       unitPrice: menuItem.price,
-      options: "",
-      note: "",
+      options: hasModifier ? randomItem(menuItem.options) : "",
+      note: randomItem(SAMPLE_NOTES),
     };
   });
   const total = items.reduce((sum, it) => sum + it.unitPrice * it.qty, 0);
@@ -56,10 +60,14 @@ export default function TestOrderTab() {
       });
       const data = await res.json();
       if (res.ok) {
+        const itemLines = order.items
+          .map((i) => {
+            const extras = [i.options, i.note].filter(Boolean).join(" / ");
+            return `${i.qty} x ${i.name}${extras ? ` (${extras})` : ""}`;
+          })
+          .join("\n");
         setResult(
-          `✅ สำเร็จ — Order #${data.orderId}\n` +
-            order.items.map((i) => `${i.qty} x ${i.name}`).join(", ") +
-            `\nรวม ${order.total} บาท`
+          `✅ สำเร็จ — Order #${data.orderId}\n${itemLines}\nรวม ${order.total} บาท`
         );
       } else {
         setResult(`❌ ล้มเหลว: ${data.error}`);
