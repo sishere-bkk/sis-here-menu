@@ -117,6 +117,7 @@ export default function StockTab() {
 
   // อัปเดตหน้าจอทันที (optimistic) แล้วค่อยยิง request ไปเบื้องหลัง ไม่ต้องรอ
   function updateItem(id: string, action: string, value: any) {
+    const prevItem = items.find((it) => it.id === id);
     const nowIso = new Date().toISOString();
     let computedStatus = "";
 
@@ -147,15 +148,27 @@ export default function StockTab() {
       })
     );
 
-    // ยิงไปเซิร์ฟเวอร์เบื้องหลัง ไม่ block หน้าจอ
+    // ยิงไปเซิร์ฟเวอร์เบื้องหลัง — แต่ตอนนี้เช็คผลจริงด้วย ถ้าพลาดจะดีดกลับ + แจ้งเตือน
     fetch("/api/stock/update", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action, value })
-    }).catch(() => {
-      // ถ้าพลาดจริงๆ ค่อยโหลดข้อมูลใหม่ทับ
-      loadItems();
-    });
+    })
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (prevItem) {
+            setItems((prev) => prev.map((it) => (it.id === id ? prevItem : it)));
+          }
+          alert("บันทึกไม่สำเร็จ: " + (data.error || `HTTP ${res.status}`));
+        }
+      })
+      .catch(() => {
+        if (prevItem) {
+          setItems((prev) => prev.map((it) => (it.id === id ? prevItem : it)));
+        }
+        alert("บันทึกไม่สำเร็จ: เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+      });
   }
 
   function startEdit(item: StockItem) {
