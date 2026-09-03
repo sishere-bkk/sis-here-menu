@@ -11,6 +11,7 @@ type StockItem = {
   min_value: number | null;
   target_value: number | null;
   level_value: string | null;
+  level_scale: "stock" | "reserve";
   count_value: number | null;
   status: string;
   photo_url: string | null;
@@ -29,7 +30,8 @@ const CATEGORY_ORDER = [
   "ของใช้อื่นๆ"
 ];
 
-const LEVELS = ["เยอะ", "ครึ่ง", "ใกล้หมด", "หมด"];
+const LEVELS_STOCK = ["เยอะ", "ครึ่ง", "ใกล้หมด", "หมด"];
+const LEVELS_RESERVE = ["มีสำรอง", "ไม่มีสำรอง", "ใกล้หมด", "หมด"];
 const FILTERS = ["ทั้งหมด", "ยังไม่เช็ค", "ใกล้หมด"] as const;
 type Filter = (typeof FILTERS)[number];
 
@@ -142,7 +144,9 @@ export default function StockTab() {
         if (action === "set_level") {
           const map: Record<string, string> = {
             เยอะ: "ปกติ",
+            มีสำรอง: "ปกติ",
             ครึ่ง: "เฝ้าดู",
+            ไม่มีสำรอง: "เฝ้าดู",
             ใกล้หมด: "ใกล้หมด",
             หมด: "หมด"
           };
@@ -321,10 +325,9 @@ export default function StockTab() {
                 )}
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                 {item.count_method === "level" ? (
                   <div className="flex flex-wrap gap-1">
-                    {LEVELS.map((lv) => (
+                    {(item.level_scale === "reserve" ? LEVELS_RESERVE : LEVELS_STOCK).map((lv) => (
                       <button
                         key={lv}
                         onClick={() => updateItem(item.id, "set_level", lv)}
