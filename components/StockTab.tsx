@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type StockItem = {
   id: string;
@@ -111,8 +111,18 @@ export default function StockTab() {
     }
   }
 
+  const editingIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    editingIdRef.current = editingId;
+  }, [editingId]);
+
   useEffect(() => {
     loadItems();
+    const interval = setInterval(() => {
+      // ถ้าพนักงานกำลังพิมพ์จำนวนอยู่ ข้ามรอบนี้ไปก่อน กันข้อมูลที่พิมพ์ค้างหาย
+      if (!editingIdRef.current) loadItems();
+    }, 7000);
+    return () => clearInterval(interval);
   }, []);
 
   // อัปเดตหน้าจอทันที (optimistic) แล้วค่อยยิง request ไปเบื้องหลัง ไม่ต้องรอ
