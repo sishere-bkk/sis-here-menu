@@ -325,7 +325,7 @@ export default function StockTab() {
                 )}
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="mt-2 flex flex-wrap items-center gap-2">
                 {item.count_method === "level" ? (
                   <div className="flex flex-wrap gap-1">
                     {(item.level_scale === "reserve" ? LEVELS_RESERVE : LEVELS_STOCK).map((lv) => (
@@ -381,6 +381,9 @@ export default function StockTab() {
                   </div>
                 )}
 
+              </div>
+
+              <div className="mt-2 flex justify-end">
                 <button
                   onClick={() => updateItem(item.id, "confirm", null)}
                   className="flex-shrink-0 rounded-full border border-forest/30 bg-forest/5 px-3 py-1.5 text-xs font-medium text-forestDark"
