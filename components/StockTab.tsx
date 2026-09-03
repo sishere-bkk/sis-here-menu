@@ -325,6 +325,7 @@ export default function StockTab() {
                 )}
               </div>
 
+              <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
                 {item.count_method === "level" ? (
                   <div className="flex flex-wrap gap-1">
                     {(item.level_scale === "reserve" ? LEVELS_RESERVE : LEVELS_STOCK).map((lv) => (
