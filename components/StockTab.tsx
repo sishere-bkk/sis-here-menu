@@ -307,7 +307,7 @@ export default function StockTab() {
                   <p className="truncate font-medium text-ink">{item.name}</p>
                   <p className="text-xs text-ink/40">{item.category}</p>
                 </div>
-                <div className="flex flex-shrink-0 flex-col items-end gap-1.5 pr-1">
+                <div className="flex flex-shrink-0 flex-col items-end gap-3 pr-1">
                   {checked ? (
                     <span
                       className="rounded-full border-2 px-3.5 py-1.5 text-xs font-medium"
