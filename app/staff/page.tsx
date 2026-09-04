@@ -144,8 +144,8 @@ export default function StaffPage() {
   const printTotal = printOrder ? orderTotal(printOrder) : 0;
 
   return (
-    <div>
-      <div className="no-print p-6">
+<div>
+<div className="no-print p-6">
         <div className="mb-1 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-forestDark">
             หน้าพนักงาน
