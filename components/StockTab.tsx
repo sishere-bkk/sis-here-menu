@@ -118,6 +118,7 @@ export default function StockTab() {
   }
 
   const editingIdRef = useRef<string | null>(null);
+  const pendingIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
     editingIdRef.current = editingId;
   }, [editingId]);
