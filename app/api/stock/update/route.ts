@@ -126,5 +126,8 @@ export async function POST(request: NextRequest) {
     to_value: toValue
   });
 
-  return NextResponse.json({ success: true, status: update.status });
+  return NextResponse.json(
+    { success: true, status: update.status },
+    { headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" } }
+  );
 }
