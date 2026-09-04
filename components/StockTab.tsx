@@ -109,7 +109,14 @@ export default function StockTab() {
     try {
       const res = await fetch("/api/stock");
       const data = await res.json();
-      if (res.ok && data.items) setItems(data.items as StockItem[]);
+      if (res.ok && data.items) {
+        setItems((prev) => {
+          const prevMap = new Map(prev.map((it) => [it.id, it]));
+          return (data.items as StockItem[]).map((it) =>
+            pendingIdsRef.current.has(it.id) ? prevMap.get(it.id) ?? it : it
+          );
+        });
+      }
     } catch (err) {
       // ignore, will retry on next load
     } finally {
@@ -135,6 +142,7 @@ export default function StockTab() {
   // อัปเดตหน้าจอทันที (optimistic) แล้วค่อยยิง request ไปเบื้องหลัง ไม่ต้องรอ
   function updateItem(id: string, action: string, value: any) {
     const prevItem = items.find((it) => it.id === id);
+    pendingIdsRef.current.add(id);
     const nowIso = new Date().toISOString();
     let computedStatus = "";
 
@@ -181,12 +189,14 @@ export default function StockTab() {
           }
           alert("บันทึกไม่สำเร็จ: " + (data.error || `HTTP ${res.status}`));
         }
+        pendingIdsRef.current.delete(id);
       })
       .catch(() => {
         if (prevItem) {
           setItems((prev) => prev.map((it) => (it.id === id ? prevItem : it)));
         }
         alert("บันทึกไม่สำเร็จ: เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
+        pendingIdsRef.current.delete(id);
       });
   }
 
