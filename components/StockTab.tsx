@@ -301,28 +301,36 @@ export default function StockTab() {
                 borderColor: checked ? colors.border : "#e5e7eb"
               }}
             >
-              <div className="flex items-center gap-3">
+              <div className="flex items-start gap-3">
                 <StockThumb url={item.photo_url} name={item.name} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium text-ink">{item.name}</p>
                   <p className="text-xs text-ink/40">{item.category}</p>
                 </div>
-                {checked ? (
-                  <span
-                    className="flex-shrink-0 rounded-full border-2 px-3.5 py-1.5 text-xs font-medium"
-                    style={{
-                      backgroundColor: colors.bg,
-                      borderColor: colors.border,
-                      color: colors.text
-                    }}
+                <div className="flex flex-shrink-0 flex-col items-end gap-1.5 pr-1">
+                  {checked ? (
+                    <span
+                      className="rounded-full border-2 px-3.5 py-1.5 text-xs font-medium"
+                      style={{
+                        backgroundColor: colors.bg,
+                        borderColor: colors.border,
+                        color: colors.text
+                      }}
+                    >
+                      {item.status}
+                    </span>
+                  ) : (
+                    <span className="rounded-full border-2 border-gray-300 bg-gray-100 px-3.5 py-1.5 text-xs font-medium text-gray-500">
+                      ยังไม่เช็ค
+                    </span>
+                  )}
+                  <button
+                    onClick={() => updateItem(item.id, "confirm", null)}
+                    className="rounded-full border border-forest/30 bg-forest/5 px-3 py-1 text-xs font-medium text-forestDark"
                   >
-                    {item.status}
-                  </span>
-                ) : (
-                  <span className="flex-shrink-0 rounded-full border-2 border-gray-300 bg-gray-100 px-3.5 py-1.5 text-xs font-medium text-gray-500">
-                    ยังไม่เช็ค
-                  </span>
-                )}
+                    ✓ ยืนยัน
+                  </button>
+                </div>
               </div>
 
               <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -383,14 +391,7 @@ export default function StockTab() {
 
               </div>
 
-              <div className="mt-2 flex justify-end">
-                <button
-                  onClick={() => updateItem(item.id, "confirm", null)}
-                  className="flex-shrink-0 rounded-full border border-forest/30 bg-forest/5 px-3 py-1.5 text-xs font-medium text-forestDark"
-                >
-                  ✓ ยืนยัน
-                </button>
-              </div>
+
 
               {checked && item.checked_by && (
                 <p
