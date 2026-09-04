@@ -334,4 +334,21 @@ export default function StaffPage() {
                       .split(",")
                       .map((o: string) => o.trim())
                       .filter(Boolean)
-                      .map((opt: string, i:
+                    .map((opt: string, i: number) => (
+                      <p key={i}>+ {opt}</p>
+                    ))}
+                  {line.note && <p>+ {line.note}</p>}
+                </div>
+              ))}
+              <p>------------------------------</p>
+              <p style={{ textAlign: "right", fontWeight: 900 }}>
+                รวม {printTotal.toFixed(0)} บาท
+              </p>
+              {staffName && <p>พนักงาน: {staffName}</p>}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
