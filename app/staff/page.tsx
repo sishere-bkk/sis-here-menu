@@ -303,33 +303,35 @@ export default function StaffPage() {
       </div>
 
       {printOrder && (
-        <div className="print-area hidden">
-          <div style={{ fontFamily: "monospace", width: "72mm", fontSize: 12 }}>
-            <p style={{ textAlign: "center", fontWeight: "bold" }}>SiS HERE</p>
-            <p>ออเดอร์ #{printOrder.id}</p>
-            <p>{formatDateTime(printOrder.created_at)}</p>
-            <p>{sourceLabel(printOrder)}</p>
-            <p>------------------------------</p>
-            {printOrder.items.map((line: any, idx: number) => (
-              <div key={idx}>
-                <p>
-                  {line.qty} x {line.name} {(line.unitPrice * line.qty).toFixed(0)} บาท
-                </p>
-                {line.options &&
-                  String(line.options)
-                    .split(",")
-                    .map((o: string) => o.trim())
-                    .filter(Boolean)
-                    .map((opt: string, i: number) => <p key={i}>   + {opt}</p>)}
-                {line.note && <p>   + {line.note}</p>}
-              </div>
-            ))}
-            <p>------------------------------</p>
-            <p>รวม: {printTotal.toFixed(0)} บาท</p>
-            {staffName && <p>พนักงาน: {staffName}</p>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        <>
+          <style>{`
+            @media print {
+              @page { size: 58mm auto; margin: 0; }
+            }
+          `}</style>
+          <div className="print-area hidden">
+            <div
+              style={{
+                fontFamily: "monospace",
+                width: "58mm",
+                fontSize: 20,
+                fontWeight: 700,
+                lineHeight: 1.5,
+              }}
+            >
+              <p style={{ textAlign: "center", fontWeight: 900, fontSize: 24 }}>SiS HERE</p>
+              <p>ออเดอร์ #{printOrder.id}</p>
+              <p>{formatDateTime(printOrder.created_at)}</p>
+              <p>{sourceLabel(printOrder)}</p>
+              <p>------------------------------</p>
+              {printOrder.items.map((line: any, idx: number) => (
+                <div key={idx}>
+                  <p>
+                    {line.qty} x {line.name} {(line.unitPrice * line.qty).toFixed(0)} บาท
+                  </p>
+                  {line.options &&
+                    String(line.options)
+                      .split(",")
+                      .map((o: string) => o.trim())
+                      .filter(Boolean)
+                      .map((opt: string, i:
