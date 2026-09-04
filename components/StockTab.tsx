@@ -61,16 +61,20 @@ function isCheckedToday(lastCheckedAt: string | null): boolean {
   return bangkokDateStr(new Date(lastCheckedAt)) === bangkokDateStr(new Date());
 }
 
-function getDriveThumbnail(url: string | null): string | null {
+function resolvePhotoUrl(url: string | null): string | null {
   if (!url) return null;
+  // ถ้าเป็นลิงก์ Google Drive แบบเก่า ให้แปลงเป็นลิงก์ thumbnail
   const match = url.match(/\/d\/([a-zA-Z0-9_-]+)/) || url.match(/id=([a-zA-Z0-9_-]+)/);
-  if (!match) return null;
-  return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+  if (match) {
+    return `https://drive.google.com/thumbnail?id=${match[1]}&sz=w200`;
+  }
+  // ถ้าไม่ใช่ลิงก์ Drive (เช่นลิงก์จาก Supabase Storage) ใช้ตรงๆ ได้เลย
+  return url;
 }
 
 function StockThumb({ url, name }: { url: string | null; name: string }) {
   const [error, setError] = useState(false);
-  const src = !error ? getDriveThumbnail(url) : null;
+  const src = !error ? resolvePhotoUrl(url) : null;
 
   if (!src) {
     return (
