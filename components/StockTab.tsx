@@ -107,7 +107,7 @@ export default function StockTab() {
 
   async function loadItems() {
     try {
-      const res = await fetch("/api/stock");
+      const res = await fetch("/api/stock", { cache: "no-store" });
       const data = await res.json();
       if (res.ok && data.items) {
         setItems((prev) => {
@@ -178,6 +178,7 @@ export default function StockTab() {
     // ยิงไปเซิร์ฟเวอร์เบื้องหลัง — แต่ตอนนี้เช็คผลจริงด้วย ถ้าพลาดจะดีดกลับ + แจ้งเตือน
     fetch("/api/stock/update", {
       method: "POST",
+      cache: "no-store",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action, value })
     })
