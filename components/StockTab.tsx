@@ -106,7 +106,6 @@ export default function StockTab() {
   const [editValue, setEditValue] = useState("");
 
   async function loadItems() {
-    console.log("🔵 loadItems เรียกทำงาน เวลา", new Date().toLocaleTimeString());
     try {
       const res = await fetch("/api/stock", { cache: "no-store" });
       const data = await res.json();
@@ -142,7 +141,6 @@ export default function StockTab() {
 
   // อัปเดตหน้าจอทันที (optimistic) แล้วค่อยยิง request ไปเบื้องหลัง ไม่ต้องรอ
   function updateItem(id: string, action: string, value: any) {
-    console.log("🟢 updateItem กดปุ่ม", id, action, value, "เวลา", new Date().toLocaleTimeString());
     const prevItem = items.find((it) => it.id === id);
     pendingIdsRef.current.add(id);
     const nowIso = new Date().toISOString();
@@ -192,14 +190,14 @@ export default function StockTab() {
           }
           alert("บันทึกไม่สำเร็จ: " + (data.error || `HTTP ${res.status}`));
         }
-        pendingIdsRef.current.delete(id);
+        setTimeout(() => pendingIdsRef.current.delete(id), 3000);
       })
       .catch(() => {
         if (prevItem) {
           setItems((prev) => prev.map((it) => (it.id === id ? prevItem : it)));
         }
         alert("บันทึกไม่สำเร็จ: เชื่อมต่อเซิร์ฟเวอร์ไม่ได้");
-        pendingIdsRef.current.delete(id);
+        setTimeout(() => pendingIdsRef.current.delete(id), 3000);
       });
   }
 
