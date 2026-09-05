@@ -144,8 +144,8 @@ export default function StaffPage() {
   const printTotal = printOrder ? orderTotal(printOrder) : 0;
 
   return (
-<div>
-<div className="no-print p-6">
+    <div>
+      <div className="no-print p-6">
         <div className="mb-1 flex items-center justify-between">
           <h1 className="text-2xl font-semibold text-forestDark">
             หน้าพนักงาน
@@ -304,26 +304,41 @@ export default function StaffPage() {
 
       {printOrder && (
         <>
-          <style>{`
-            @media print {
-              @page { size: 58mm auto; margin: 0; }
+          {(() => {
+            // นับจำนวนบรรทัดคร่าวๆ เพื่อคำนวณความยาวกระดาษให้พอดี ไม่ยาวเกินจริง
+            let lineCount = 8; // หัวร้าน, ออเดอร์#, วันเวลา, โต๊ะ/ประเภท, เส้นคั่น 2 เส้น, รวมเงิน, พนักงาน
+            for (const line of printOrder.items) {
+              lineCount += 1; // บรรทัดเมนูหลัก
+              if (line.options) {
+                lineCount += String(line.options).split(",").filter((o: string) => o.trim()).length;
+              }
+              if (line.note) lineCount += 1;
             }
-          `}</style>
+            // ที่ fontSize 26px + lineHeight 1.6 แต่ละบรรทัดสูงประมาณ 11mm (รวม margin เผื่อพิมพ์ไม่ตัดคำ)
+            const heightMm = Math.max(60, lineCount * 11 + 15);
+            return (
+              <style>{`
+                @media print {
+                  @page { size: 58mm ${heightMm}mm; margin: 0; }
+                }
+              `}</style>
+            );
+          })()}
           <div className="print-area hidden">
             <div
               style={{
                 fontFamily: "monospace",
                 width: "58mm",
-                fontSize: 20,
-                fontWeight: 700,
-                lineHeight: 1.5,
+                fontSize: 26,
+                fontWeight: 900,
+                lineHeight: 1.6,
               }}
             >
-              <p style={{ textAlign: "center", fontWeight: 900, fontSize: 24 }}>SiS HERE</p>
+              <p style={{ textAlign: "center", fontWeight: 900, fontSize: 34 }}>SiS HERE</p>
               <p>ออเดอร์ #{printOrder.id}</p>
               <p>{formatDateTime(printOrder.created_at)}</p>
               <p>{sourceLabel(printOrder)}</p>
-              <p>------------------------------</p>
+              <p>------------------------</p>
               {printOrder.items.map((line: any, idx: number) => (
                 <div key={idx}>
                   <p>
@@ -334,16 +349,12 @@ export default function StaffPage() {
                       .split(",")
                       .map((o: string) => o.trim())
                       .filter(Boolean)
-                    .map((opt: string, i: number) => (
-                      <p key={i}>+ {opt}</p>
-                    ))}
-                  {line.note && <p>+ {line.note}</p>}
+                      .map((opt: string, i: number) => <p key={i}>   + {opt}</p>)}
+                  {line.note && <p>   + {line.note}</p>}
                 </div>
               ))}
-              <p>------------------------------</p>
-              <p style={{ textAlign: "right", fontWeight: 900 }}>
-                รวม {printTotal.toFixed(0)} บาท
-              </p>
+              <p>------------------------</p>
+              <p style={{ fontSize: 28 }}>รวม: {printTotal.toFixed(0)} บาท</p>
               {staffName && <p>พนักงาน: {staffName}</p>}
             </div>
           </div>
