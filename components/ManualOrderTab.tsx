@@ -17,13 +17,19 @@ type OrderLine = {
   name: string;
   qty: number;
   unitPrice: number;
-  options: string; // ข้อความรวมตัวเลือกที่เลือก เช่น "ไก่กรอบ, ไข่ดาว"
+  options: string;
   note: string;
   isCustom: boolean;
-  // เก็บไว้เผื่อกด "คัดลอกรายการนี้"
   sourceItem?: MenuItem;
   selections?: Record<string, string[]>;
 };
+
+// ราคาที่ใช้จริงตอนคีย์ออเดอร์ Grab/LINE MAN:
+// ถ้าตั้ง delivery_price ไว้ ใช้ตัวนั้นก่อน ถ้าไม่ตั้ง (null) ใช้ราคาปกติ (price)
+function getEffectivePrice(item: MenuItem): number {
+  const deliveryPrice = (item as any).delivery_price;
+  return deliveryPrice !== null && deliveryPrice !== undefined ? deliveryPrice : item.price;
+}
 
 export default function ManualOrderTab({ staffName }: { staffName: string }) {
   const [channel, setChannel] = useState<"grab" | "lineman">("grab");
@@ -47,6 +53,8 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
   useEffect(() => {
     async function load() {
+      // ดึงเมนูทั้งหมดที่ available=true มาให้ครบ (รวมเมนู delivery_only ด้วย)
+      // หน้าลูกค้า (app/page.tsx) ต่างหากที่กรอง delivery_only ออก ไม่ใช่หน้านี้
       const [{ data: menuData }, { data: presetData }] = await Promise.all([
         supabase.from("menu").select("*").eq("available", true),
         supabase.from("quick_add_presets").select("*").eq("active", true).order("sort_order")
@@ -77,7 +85,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         key: `menu-${item.id}-{}`,
         name: item.name,
         qty: 1,
-        unitPrice: item.price,
+        unitPrice: getEffectivePrice(item),
         options: "",
         note: "",
         isCustom: false,
@@ -126,7 +134,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       key: `menu-${optionItem.id}-${JSON.stringify(modalSelections)}-${modalNote}`,
       name: optionItem.name,
       qty: 1,
-      unitPrice: optionItem.price + priceDiff,
+      unitPrice: getEffectivePrice(optionItem) + priceDiff,
       options: optionText,
       note: modalNote,
       isCustom: false,
@@ -182,11 +190,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
   function duplicateLine(line: OrderLine) {
     if (!line.sourceItem) {
-      // รายการด่วน/พิมพ์เอง — เพิ่มจำนวนตรงๆ ได้เลยเพราะไม่มีตัวเลือกให้ต่างกัน
       changeQty(line.key, 1);
       return;
     }
-    // เปิด popup ตัวเลือกเดิมไว้ให้แก้ก่อนเพิ่ม (เผื่อจานถัดไปเลือกไม่เหมือนกันนิดหน่อย)
     setModalSelections(line.selections ?? {});
     setModalNote(line.note);
     setOptionItem(line.sourceItem);
@@ -322,7 +328,6 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         {submitting ? "กำลังบันทึก..." : "บันทึกออเดอร์"}
       </button>
 
-      {/* Popup เลือกเมนู / รายการด่วน */}
       {pickerOpen && !optionItem && (
         <div className="fixed inset-0 z-20 flex items-end bg-ink/40">
           <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6">
@@ -352,7 +357,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                   <div key={item.id} className="flex items-center justify-between rounded-xl border border-forest/10 p-3">
                     <div>
                       <p className="text-sm text-ink">{item.name}</p>
-                      <p className="text-xs text-[#8B3A2B]">{item.price.toFixed(0)} บาท</p>
+                      <p className="text-xs text-[#8B3A2B]">{getEffectivePrice(item).toFixed(0)} บาท</p>
                     </div>
                     <button
                       onClick={() => openMenuItem(item)}
@@ -416,7 +421,6 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         </div>
       )}
 
-      {/* Popup ตัวเลือกของเมนูที่มี options (ใช้ตอนกด + จากเมนู หรือกด "คัดลอกรายการนี้") */}
       {optionItem && (
         <div className="fixed inset-0 z-30 flex items-end bg-ink/40">
           <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6">
@@ -446,28 +450,3 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                           <span className="text-sm text-ink/50">
                             {choice.price_diff > 0 ? `+${choice.price_diff}` : ""}
                           </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-6">
-              <p className="mb-2 font-medium text-ink">หมายเหตุ (ถ้ามี)</p>
-              <textarea
-                value={modalNote}
-                onChange={(e) => setModalNote(e.target.value)}
-                rows={2}
-                className="w-full rounded-xl border border-forest/15 px-3 py-2 text-sm"
-              />
-            </div>
-            <button onClick={confirmOptions} className="mt-6 w-full rounded-full bg-forest py-3 font-medium text-sand">
-              เพิ่มลงออเดอร์
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
