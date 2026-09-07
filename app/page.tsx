@@ -62,12 +62,12 @@ function MenuPageInner() {
 
   useEffect(() => {
     async function loadMenu() {
-const { data, error } = await supabase
-  .from("menu")
-  .select("*")
-  .eq("available", true)
-  .neq("channel_scope", "delivery_only")   // เพิ่มบรรทัดนี้
-  .order("category", { ascending: true });
+      const { data, error } = await supabase
+        .from("menu")
+        .select("*")
+        .eq("available", true)
+        .neq("channel_scope", "delivery_only") // ไม่โชว์เมนูที่ขายเฉพาะเดลิเวอรี่ในหน้าลูกค้า
+        .order("category", { ascending: true });
 
       if (!error && data) {
         setItems(data as MenuItem[]);
