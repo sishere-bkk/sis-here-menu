@@ -180,8 +180,8 @@ export default function StaffPage() {
           <button
             onClick={() => setTab("manualorder")}
             style={{ whiteSpace: "nowrap" }}
-            className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
-              tab === "manualorder" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+            className={`flex-none w-24 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+              tab === "orders" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
             ⌨️ คีย์ออเดอร์
@@ -189,8 +189,8 @@ export default function StaffPage() {
           <button
             onClick={() => setTab("stock")}
             style={{ whiteSpace: "nowrap" }}
-            className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
-              tab === "stock" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+            className={`flex-none w-24 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+              tab === "manualorder" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
             📦 สต็อก
@@ -201,9 +201,9 @@ export default function StaffPage() {
           <div className="mb-6 flex gap-1 rounded-2xl bg-[#8B3A2B]/10 p-1">
             <button
               onClick={() => setTab("dashboard")}
-              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
-                tab === "dashboard" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-              }`}
+            className={`flex-none w-24 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+              tab === "stock" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+            }`}
             >
               📊 Dashboard
             </button>
