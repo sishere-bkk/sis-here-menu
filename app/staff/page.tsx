@@ -66,7 +66,8 @@ function getCookie(name: string): string {
 
 export default function StaffPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test">("orders");etOrders] = useState<OrderRow[]>([]);
+  const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test">("orders");
+  const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
   const [staffName, setStaffName] = useState("");
   const isOwner = staffName === OWNER_NAME;
