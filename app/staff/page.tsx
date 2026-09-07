@@ -17,6 +17,8 @@ type OrderRow = {
   table_number: string | null;
   customer_name: string | null;
   customer_phone: string | null;
+  channel: string | null;
+  platform_order_no: string | null;
   items: any[];
   status: string;
   created_at: string;
@@ -40,8 +42,10 @@ function formatDateTime(iso: string) {
 }
 
 function sourceLabel(o: OrderRow) {
-  if (o.channel === "grab") return `Grab${o.platform_order_no ? " · " + o.platform_order_no : ""}`;
-  if (o.channel === "lineman") return `LINE MAN${o.platform_order_no ? " · " + o.platform_order_no : ""}`;
+  if (o.channel === "grab")
+    return `Grab${o.platform_order_no ? " · " + o.platform_order_no : ""}`;
+  if (o.channel === "lineman")
+    return `LINE MAN${o.platform_order_no ? " · " + o.platform_order_no : ""}`;
   if (o.order_type === "table") return `โต๊ะ ${o.table_number}`;
   if (o.order_type === "takeaway")
     return `กลับบ้าน - ${o.customer_name} (${o.customer_phone})`;
@@ -62,9 +66,9 @@ function getCookie(name: string): string {
 
 export default function StaffPage() {
   const router = useRouter();
-const [tab, setTab] = useState
-  "orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test"
->("orders");
+  const [tab, setTab] = useState
+    "orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test"
+  >("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
   const [staffName, setStaffName] = useState("");
@@ -117,7 +121,6 @@ const [tab, setTab] = useState
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action: "print" })
     });
-    // ไม่เอาออกจากคิว — พิมพ์ได้หลายครั้ง Order ยังค้างจนกว่าจะกด "รับออเดอร์" หรือ "ยกเลิก"
   }
 
   async function handleAccept(id: number) {
@@ -177,6 +180,15 @@ const [tab, setTab] = useState
             📋 ออเดอร์
           </button>
           <button
+            onClick={() => setTab("manualorder")}
+            style={{ whiteSpace: "nowrap" }}
+            className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+              tab === "manualorder" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+            }`}
+          >
+            ⌨️ คีย์ออเดอร์
+          </button>
+          <button
             onClick={() => setTab("stock")}
             style={{ whiteSpace: "nowrap" }}
             className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
@@ -205,15 +217,6 @@ const [tab, setTab] = useState
             >
               🧪 ทดสอบ
             </button>
-            <button
-  onClick={() => setTab("manualorder")}
-  style={{ whiteSpace: "nowrap" }}
-  className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
-    tab === "manualorder" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
-  }`}
->
-  ⌨️ คีย์ออเดอร์
-</button>
             <button
               onClick={() => setTab("upload")}
               className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
@@ -308,26 +311,24 @@ const [tab, setTab] = useState
           </>
         )}
 
+        {tab === "manualorder" && <ManualOrderTab staffName={staffName} />}
         {tab === "stock" && <StockTab />}
         {tab === "upload" && isOwner && <UploadImageTab />}
         {tab === "dashboard" && isOwner && <DashboardTab />}
         {tab === "test" && isOwner && <TestOrderTab />}
-        {tab === "manualorder" && <ManualOrderTab staffName={staffName} />}
       </div>
 
       {printOrder && (
         <>
           {(() => {
-            // นับจำนวนบรรทัดคร่าวๆ เพื่อคำนวณความยาวกระดาษให้พอดี ไม่ยาวเกินจริง
-            let lineCount = 8; // หัวร้าน, ออเดอร์#, วันเวลา, โต๊ะ/ประเภท, เส้นคั่น 2 เส้น, รวมเงิน, พนักงาน
+            let lineCount = 8;
             for (const line of printOrder.items) {
-              lineCount += 1; // บรรทัดเมนูหลัก
+              lineCount += 1;
               if (line.options) {
                 lineCount += String(line.options).split(",").filter((o: string) => o.trim()).length;
               }
               if (line.note) lineCount += 1;
             }
-            // ที่ fontSize 26px + lineHeight 1.6 แต่ละบรรทัดสูงประมาณ 11mm (รวม margin เผื่อพิมพ์ไม่ตัดคำ)
             const heightMm = Math.max(60, lineCount * 11 + 15);
             return (
               <style>{`
