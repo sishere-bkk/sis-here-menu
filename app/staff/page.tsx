@@ -6,6 +6,7 @@ import StockTab from "../../components/StockTab";
 import UploadImageTab from "../../components/UploadImageTab";
 import DashboardTab from "../../components/DashboardTab";
 import TestOrderTab from "../../components/TestOrderTab";
+import ManualOrderTab from "../../components/ManualOrderTab";
 
 // เห็นแท็บ Dashboard / ทดสอบ ได้เฉพาะชื่อนี้เท่านั้น
 const OWNER_NAME = "พี่ดี๋";
@@ -61,9 +62,9 @@ function getCookie(name: string): string {
 
 export default function StaffPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<
-    "orders" | "stock" | "upload" | "dashboard" | "test"
-  >("orders");
+const [tab, setTab] = useState
+  "orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test"
+>("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
   const [staffName, setStaffName] = useState("");
@@ -205,6 +206,15 @@ export default function StaffPage() {
               🧪 ทดสอบ
             </button>
             <button
+  onClick={() => setTab("manualorder")}
+  style={{ whiteSpace: "nowrap" }}
+  className={`w-28 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+    tab === "manualorder" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+  }`}
+>
+  ⌨️ คีย์ออเดอร์
+</button>
+            <button
               onClick={() => setTab("upload")}
               className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
                 tab === "upload" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
@@ -302,6 +312,7 @@ export default function StaffPage() {
         {tab === "upload" && isOwner && <UploadImageTab />}
         {tab === "dashboard" && isOwner && <DashboardTab />}
         {tab === "test" && isOwner && <TestOrderTab />}
+        {tab === "manualorder" && <ManualOrderTab staffName={staffName} />}
       </div>
 
       {printOrder && (
