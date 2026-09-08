@@ -19,6 +19,7 @@ type OrderRow = {
   customer_phone: string | null;
   channel: string | null;
   platform_order_no: string | null;
+  needs_utensils: boolean;
   items: any[];
   status: string;
   created_at: string;
@@ -50,6 +51,17 @@ function sourceLabel(o: OrderRow) {
   if (o.order_type === "takeaway")
     return `กลับบ้าน - ${o.customer_name} (${o.customer_phone})`;
   return "อื่นๆ";
+}
+
+// เฉพาะบิลปริ้น: รวมประเภทออเดอร์ + เลขออเดอร์ไว้บรรทัดเดียว ตามฟอร์แมตบิลที่ต้องการ
+function printHeaderLabel(o: OrderRow) {
+  if (o.channel === "grab")
+    return `Grab / #${o.platform_order_no || o.id}`;
+  if (o.channel === "lineman")
+    return `LINE MAN / #${o.platform_order_no || o.id}`;
+  if (o.order_type === "table") return `โต๊ะ ${o.table_number} / #${o.id}`;
+  if (o.order_type === "takeaway") return `Take Away / #${o.id}`;
+  return `#${o.id}`;
 }
 
 function orderTotal(o: OrderRow) {
@@ -146,6 +158,8 @@ export default function StaffPage() {
   }
 
   const printTotal = printOrder ? orderTotal(printOrder) : 0;
+  const isDeliveryPrint =
+    !!printOrder && (printOrder.channel === "grab" || printOrder.channel === "lineman");
 
   return (
     <div>
@@ -318,56 +332,64 @@ export default function StaffPage() {
 
       {printOrder && (
         <>
-          {(() => {
-            let lineCount = 8;
-            for (const line of printOrder.items) {
-              lineCount += 1;
-              if (line.options) {
-                lineCount += String(line.options).split(",").filter((o: string) => o.trim()).length;
-              }
-              if (line.note) lineCount += 1;
+          <style>{`
+            @media print {
+              @page { size: 58mm auto; margin: 0; }
             }
-            const heightMm = Math.max(60, lineCount * 11 + 15);
-            return (
-              <style>{`
-                @media print {
-                  @page { size: 58mm ${heightMm}mm; margin: 0; }
-                }
-              `}</style>
-            );
-          })()}
+          `}</style>
           <div className="print-area hidden">
             <div
               style={{
                 fontFamily: "monospace",
                 width: "58mm",
-                fontSize: 26,
                 fontWeight: 900,
-                lineHeight: 1.6,
+                lineHeight: 1.5,
+                fontSize: 16
               }}
             >
-              <p style={{ textAlign: "center", fontWeight: 900, fontSize: 34 }}>SiS HERE</p>
-              <p>ออเดอร์ #{printOrder.id}</p>
-              <p>{formatDateTime(printOrder.created_at)}</p>
-              <p>{sourceLabel(printOrder)}</p>
-              <p>------------------------</p>
+              <p style={{ textAlign: "center", fontWeight: 900, fontSize: 34, margin: "0 0 4px" }}>
+                SiS HERE
+              </p>
+              <p style={{ textAlign: "center", fontSize: 26, margin: "0 0 6px" }}>
+                {printHeaderLabel(printOrder)}
+              </p>
+              <p style={{ margin: "0 0 4px" }}>------------------------</p>
+
               {printOrder.items.map((line: any, idx: number) => (
-                <div key={idx}>
-                  <p>
-                    {line.qty} x {line.name} {(line.unitPrice * line.qty).toFixed(0)} บาท
+                <div key={idx} style={{ marginBottom: 4 }}>
+                  <p style={{ fontSize: 20, margin: 0 }}>
+                    {line.qty} x {line.name}
+                    {!isDeliveryPrint && ` ${line.unitPrice.toFixed(0)} บาท`}
                   </p>
                   {line.options &&
                     String(line.options)
                       .split(",")
                       .map((o: string) => o.trim())
                       .filter(Boolean)
-                      .map((opt: string, i: number) => <p key={i}>   + {opt}</p>)}
-                  {line.note && <p>   + {line.note}</p>}
+                      .map((opt: string, i: number) => (
+                        <p key={i} style={{ fontSize: 16, margin: 0, paddingLeft: 10 }}>
+                          + {opt}
+                        </p>
+                      ))}
+                  {line.note && (
+                    <p style={{ fontSize: 16, margin: 0, paddingLeft: 10 }}>+ {line.note}</p>
+                  )}
                 </div>
               ))}
-              <p>------------------------</p>
-              <p style={{ fontSize: 28 }}>รวม: {printTotal.toFixed(0)} บาท</p>
-              {staffName && <p>พนักงาน: {staffName}</p>}
+
+              <p style={{ margin: "4px 0" }}>------------------------</p>
+
+              {isDeliveryPrint && (
+                <p style={{ textAlign: "center", fontSize: 20, margin: "0 0 4px" }}>
+                  {printOrder.needs_utensils ? "รับช้อนส้อม" : "ไม่รับช้อนส้อม"}
+                </p>
+              )}
+
+              {!isDeliveryPrint && (
+                <p style={{ fontSize: 24, margin: 0 }}>รวม: {printTotal.toFixed(0)} บาท</p>
+              )}
+
+              {staffName && <p style={{ fontSize: 14, margin: "6px 0 0" }}>พนักงาน: {staffName}</p>}
             </div>
           </div>
         </>
