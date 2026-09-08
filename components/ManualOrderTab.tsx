@@ -34,6 +34,7 @@ function getEffectivePrice(item: MenuItem): number {
 export default function ManualOrderTab({ staffName }: { staffName: string }) {
   const [channel, setChannel] = useState<"grab" | "lineman">("grab");
   const [platformOrderNo, setPlatformOrderNo] = useState("");
+  const [needsUtensils, setNeedsUtensils] = useState(true);
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [presets, setPresets] = useState<QuickPreset[]>([]);
