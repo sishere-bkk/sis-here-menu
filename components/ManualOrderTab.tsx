@@ -96,6 +96,18 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
     return Array.from(map.entries());
   }, [presets]);
 
+  // จัดกลุ่มเมนูตามหมวด (บาง category ใน DB มีช่องว่างนำหน้าติดมา เลย trim() ก่อนจัดกลุ่ม กันแตกกลุ่มโดยไม่ตั้งใจ)
+  const menuGroups = useMemo(() => {
+    const map = new Map<string, MenuItem[]>();
+    for (const item of menuItems) {
+      const cat = (item.category || "อื่นๆ").trim();
+      const list = map.get(cat) ?? [];
+      list.push(item);
+      map.set(cat, list);
+    }
+    return Array.from(map.entries());
+  }, [menuItems]);
+
   function hasOptions(item: MenuItem) {
     return !!getEffectiveOptions(item)?.groups?.length;
   }
@@ -397,19 +409,26 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
             </div>
 
             {pickerMode === "menu" && (
-              <div className="space-y-2">
-                {menuItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between rounded-xl border border-forest/10 p-3">
-                    <div>
-                      <p className="text-sm text-ink">{getEffectiveName(item)}</p>
-                      <p className="text-xs text-[#8B3A2B]">{getEffectivePrice(item).toFixed(0)} บาท</p>
+              <div>
+                {menuGroups.map(([category, items]) => (
+                  <div key={category} className="mb-4">
+                    <p className="mb-2 text-sm font-medium text-ink">{category}</p>
+                    <div className="space-y-2">
+                      {items.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between rounded-xl border border-forest/10 p-3">
+                          <div>
+                            <p className="text-sm text-ink">{getEffectiveName(item)}</p>
+                            <p className="text-xs text-[#8B3A2B]">{getEffectivePrice(item).toFixed(0)} บาท</p>
+                          </div>
+                          <button
+                            onClick={() => openMenuItem(item)}
+                            className="rounded-full bg-forest px-4 py-1.5 text-sm text-sand"
+                          >
+                            +
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                    <button
-                      onClick={() => openMenuItem(item)}
-                      className="rounded-full bg-forest px-4 py-1.5 text-sm text-sand"
-                    >
-                      +
-                    </button>
                   </div>
                 ))}
               </div>
