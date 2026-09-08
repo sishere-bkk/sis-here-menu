@@ -24,11 +24,31 @@ type OrderLine = {
   selections?: Record<string, string[]>;
 };
 
+// หน้านี้ใช้คีย์ออเดอร์ Grab/LINE MAN เท่านั้น เลยต้องใช้ชื่อ/ราคา/ตัวเลือก
+// เวอร์ชัน "delivery_*" แทนของเมนูออนไลน์ปกติเสมอ (ถ้าไม่ได้ตั้งไว้ ค่อย fallback ไปใช้ของเดิม)
+
 // ราคาที่ใช้จริงตอนคีย์ออเดอร์ Grab/LINE MAN:
 // ถ้าตั้ง delivery_price ไว้ ใช้ตัวนั้นก่อน ถ้าไม่ตั้ง (null) ใช้ราคาปกติ (price)
 function getEffectivePrice(item: MenuItem): number {
   const deliveryPrice = (item as any).delivery_price;
   return deliveryPrice !== null && deliveryPrice !== undefined ? deliveryPrice : item.price;
+}
+
+// ชื่อที่ใช้จริงตอนคีย์ออเดอร์ Grab/LINE MAN:
+// ถ้าตั้ง delivery_name ไว้ ใช้ตัวนั้นก่อน ถ้าไม่ตั้ง (null) ใช้ชื่อปกติ (name)
+function getEffectiveName(item: MenuItem): string {
+  const deliveryName = (item as any).delivery_name;
+  return deliveryName !== null && deliveryName !== undefined && deliveryName !== ""
+    ? deliveryName
+    : item.name;
+}
+
+// ตัวเลือกที่ใช้จริงตอนคีย์ออเดอร์ Grab/LINE MAN:
+// ถ้าตั้ง delivery_options ไว้ ใช้ตัวนั้นก่อน ถ้าไม่ตั้ง (null) ใช้ options ปกติ
+function getEffectiveOptions(item: MenuItem): { groups: OptionGroup[] } | null {
+  const deliveryOptions = (item as any).delivery_options;
+  if (deliveryOptions && deliveryOptions.groups) return deliveryOptions;
+  return item.options ?? null;
 }
 
 export default function ManualOrderTab({ staffName }: { staffName: string }) {
@@ -77,14 +97,14 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
   }, [presets]);
 
   function hasOptions(item: MenuItem) {
-    return !!item.options?.groups?.length;
+    return !!getEffectiveOptions(item)?.groups?.length;
   }
 
   function openMenuItem(item: MenuItem) {
     if (!hasOptions(item)) {
       addOrIncrementLine({
         key: `menu-${item.id}-{}`,
-        name: item.name,
+        name: getEffectiveName(item),
         qty: 1,
         unitPrice: getEffectivePrice(item),
         options: "",
@@ -96,8 +116,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       setPickerOpen(false);
       return;
     }
+    const effectiveOptions = getEffectiveOptions(item);
     const initial: Record<string, string[]> = {};
-    for (const g of item.options!.groups) initial[g.name] = [];
+    for (const g of effectiveOptions!.groups) initial[g.name] = [];
     setModalSelections(initial);
     setModalNote("");
     setOptionItem(item);
@@ -119,21 +140,22 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
   function confirmOptions() {
     if (!optionItem) return;
-    for (const g of optionItem.options?.groups ?? []) {
+    const effectiveOptions = getEffectiveOptions(optionItem);
+    for (const g of effectiveOptions?.groups ?? []) {
       if (g.required && (modalSelections[g.name] ?? []).length === 0) {
         alert(`กรุณาเลือก "${g.name}" ก่อนครับ`);
         return;
       }
     }
     let priceDiff = 0;
-    for (const g of optionItem.options?.groups ?? []) {
+    for (const g of effectiveOptions?.groups ?? []) {
       const selected = modalSelections[g.name] ?? [];
       for (const c of g.choices) if (selected.includes(c.label)) priceDiff += c.price_diff;
     }
     const optionText = Object.values(modalSelections).flat().join(", ");
     addOrIncrementLine({
       key: `menu-${optionItem.id}-${JSON.stringify(modalSelections)}-${modalNote}`,
-      name: optionItem.name,
+      name: getEffectiveName(optionItem),
       qty: 1,
       unitPrice: getEffectivePrice(optionItem) + priceDiff,
       options: optionText,
@@ -379,7 +401,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                 {menuItems.map((item) => (
                   <div key={item.id} className="flex items-center justify-between rounded-xl border border-forest/10 p-3">
                     <div>
-                      <p className="text-sm text-ink">{item.name}</p>
+                      <p className="text-sm text-ink">{getEffectiveName(item)}</p>
                       <p className="text-xs text-[#8B3A2B]">{getEffectivePrice(item).toFixed(0)} บาท</p>
                     </div>
                     <button
@@ -448,11 +470,11 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         <div className="fixed inset-0 z-30 flex items-end bg-ink/40">
           <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-forestDark">{optionItem.name}</h3>
+              <h3 className="text-lg font-semibold text-forestDark">{getEffectiveName(optionItem)}</h3>
               <button onClick={() => setOptionItem(null)} className="text-sm text-ink/50">ปิด</button>
             </div>
             <div className="space-y-6">
-              {optionItem.options!.groups.map((group) => (
+              {getEffectiveOptions(optionItem)!.groups.map((group) => (
                 <div key={group.name}>
                   <p className="mb-2 font-medium text-ink">
                     {group.name}
