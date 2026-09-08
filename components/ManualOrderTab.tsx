@@ -229,6 +229,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           channel,
           platformOrderNo: platformOrderNo || null,
           keyedBy: staffName || null,
+          needsUtensils,
           items: lines.map((l) => ({
             name: l.name,
             qty: l.qty,
@@ -248,6 +249,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       alert(`บันทึกออเดอร์สำเร็จ #${data.orderId} — ไปพิมพ์บิลได้ที่แท็บออเดอร์`);
       setLines([]);
       setPlatformOrderNo("");
+      setNeedsUtensils(true);
     } catch {
       alert("บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ");
     } finally {
@@ -278,6 +280,26 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         placeholder="เลขออเดอร์แพลตฟอร์ม (ไม่บังคับ) เช่น GR-48213"
         className="mb-4 w-full rounded-xl border border-forest/15 px-3 py-2 text-sm"
       />
+
+      <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setNeedsUtensils(true)}
+          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium ${
+            needsUtensils ? "bg-forest text-sand" : "bg-white text-ink/60 border border-forest/15"
+          }`}
+        >
+          รับช้อนส้อม
+        </button>
+        <button
+          onClick={() => setNeedsUtensils(false)}
+          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium ${
+            !needsUtensils ? "bg-forest text-sand" : "bg-white text-ink/60 border border-forest/15"
+          }`}
+        >
+          ไม่รับช้อนส้อม
+        </button>
+      </div>
 
       <p className="mb-2 text-sm font-semibold text-ink">รายการ ({lines.length})</p>
       {lines.length === 0 && (
@@ -451,3 +473,32 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                           <span className="text-sm text-ink/50">
                             {choice.price_diff > 0 ? `+${choice.price_diff}` : ""}
                           </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6">
+              <p className="mb-2 text-sm font-medium text-ink">โน้ตเพิ่มเติม (ไม่บังคับ)</p>
+              <input
+                value={modalNote}
+                onChange={(e) => setModalNote(e.target.value)}
+                placeholder="เช่น ไม่เผ็ด, แยกน้ำจิ้ม"
+                className="mb-4 w-full rounded-lg border border-forest/15 px-3 py-2 text-sm"
+              />
+              <button
+                onClick={confirmOptions}
+                className="w-full rounded-full bg-forest py-3 font-medium text-sand"
+              >
+                ยืนยัน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
