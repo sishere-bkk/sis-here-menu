@@ -4,14 +4,12 @@ import { createClient } from "@supabase/supabase-js";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { channel, platformOrderNo, keyedBy, items, total } = body;
+    const { channel, platformOrderNo, keyedBy, needsUtensils, items, total } = body;
     // channel: "grab" | "lineman"
-
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL as string,
       process.env.SUPABASE_SERVICE_ROLE_KEY as string
     );
-
     const { data, error } = await supabaseAdmin
       .from("orders")
       .insert({
@@ -19,6 +17,7 @@ export async function POST(request: NextRequest) {
         channel,
         platform_order_no: platformOrderNo ?? null,
         keyed_by: keyedBy ?? null,
+        needs_utensils: needsUtensils ?? true,
         items,
         subtotal: total,
         discount: 0,
@@ -29,12 +28,10 @@ export async function POST(request: NextRequest) {
       })
       .select()
       .single();
-
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
     const orderId = data.id;
-
     const orderItemsRows = (items as any[]).map((line) => ({
       order_id: orderId,
       item_name: line.name,
@@ -45,14 +42,12 @@ export async function POST(request: NextRequest) {
       line_total: line.unitPrice * line.qty,
       is_custom: line.isCustom ?? false // true = รายการด่วน/พิมพ์เอง ไม่ผูกเมนูจริง
     }));
-
     const { error: itemsError } = await supabaseAdmin
       .from("order_items")
       .insert(orderItemsRows);
     if (itemsError) {
       console.error("order_items insert error:", itemsError.message);
     }
-
     return NextResponse.json({ success: true, orderId });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
