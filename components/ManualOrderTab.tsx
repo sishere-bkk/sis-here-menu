@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase, MenuItem, OptionGroup } from "../lib/supabaseClient";
 
 type QuickPreset = {
@@ -24,18 +24,19 @@ type OrderLine = {
   selections?: Record<string, string[]>;
 };
 
-// หน้านี้ใช้คีย์ออเดอร์ Grab/LINE MAN เท่านั้น เลยต้องใช้ชื่อ/ราคา/ตัวเลือก
+// หน้านี้ใช้คีย์ออเดอร์ Grab/LINE MAN เท่านั้น เลยต้องใช้ชื่อ/ราคา/ตัวเลือก/รูป
 // เวอร์ชัน "delivery_*" แทนของเมนูออนไลน์ปกติเสมอ (ถ้าไม่ได้ตั้งไว้ ค่อย fallback ไปใช้ของเดิม)
+// ยกเว้นรูป (delivery_image_url) ที่ตั้งใจ "ไม่" fallback ไปใช้รูปเมนูออนไลน์ เพราะอยากแยกกันเด็ดขาด
 
-// ราคาที่ใช้จริงตอนคีย์ออเดอร์ Grab/LINE MAN:
-// ถ้าตั้ง delivery_price ไว้ ใช้ตัวนั้นก่อน ถ้าไม่ตั้ง (null) ใช้ราคาปกติ (price)
+const EXTRAS_CATEGORY = "ของทานเล่น ราคาพิเศษ";
+// หมวดที่ไม่ต้องมี popup ตัวเลือกเลย (กด + แล้วเพิ่มลงออเดอร์ทันที)
+const NO_OPTIONS_CATEGORIES = ["เครื่องดื่ม", "สลัดและของทานเล่น"];
+
 function getEffectivePrice(item: MenuItem): number {
   const deliveryPrice = (item as any).delivery_price;
   return deliveryPrice !== null && deliveryPrice !== undefined ? deliveryPrice : item.price;
 }
 
-// ชื่อที่ใช้จริงตอนคีย์ออเดอร์ Grab/LINE MAN:
-// ถ้าตั้ง delivery_name ไว้ ใช้ตัวนั้นก่อน ถ้าไม่ตั้ง (null) ใช้ชื่อปกติ (name)
 function getEffectiveName(item: MenuItem): string {
   const deliveryName = (item as any).delivery_name;
   return deliveryName !== null && deliveryName !== undefined && deliveryName !== ""
@@ -43,18 +44,23 @@ function getEffectiveName(item: MenuItem): string {
     : item.name;
 }
 
-// ตัวเลือกที่ใช้จริงตอนคีย์ออเดอร์ Grab/LINE MAN:
-// ถ้าตั้ง delivery_options ไว้ ใช้ตัวนั้นก่อน ถ้าไม่ตั้ง (null) ใช้ options ปกติ
 function getEffectiveOptions(item: MenuItem): { groups: OptionGroup[] } | null {
   const deliveryOptions = (item as any).delivery_options;
   if (deliveryOptions && deliveryOptions.groups) return deliveryOptions;
   return item.options ?? null;
 }
 
+// รูปสำหรับหน้าคีย์ออเดอร์เท่านั้น ไม่ fallback ไปใช้รูปเมนูออนไลน์ (แยกกันเด็ดขาดตามที่ต้องการ)
+function getDeliveryImage(item: MenuItem): string | null {
+  const url = (item as any).delivery_image_url;
+  return url ? url : null;
+}
+
 export default function ManualOrderTab({ staffName }: { staffName: string }) {
   const [channel, setChannel] = useState<"grab" | "lineman">("grab");
   const [platformOrderNo, setPlatformOrderNo] = useState("");
   const [needsUtensils, setNeedsUtensils] = useState(true);
+  const [discount, setDiscount] = useState("");
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [presets, setPresets] = useState<QuickPreset[]>([]);
@@ -71,6 +77,21 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
   const [customPrice, setCustomPrice] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
+
+  // ข้อ 4: สไลด์ขวาเพื่อปิด popup ตัวเลือก (เหมือนปุ่มปิด ไม่บันทึกอะไร)
+  const touchStartX = useRef<number | null>(null);
+
+  function handleModalTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+  }
+  function handleModalTouchEnd(e: React.TouchEvent) {
+    if (touchStartX.current === null) return;
+    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+    touchStartX.current = null;
+    if (deltaX > 70) {
+      setOptionItem(null);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -98,9 +119,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
     return Array.from(map.entries());
   }, [menuItems]);
 
-  // "ของทานเล่น ราคาพิเศษ" ย้ายไปแนบเป็นกลุ่มตัวเลือกท้าย popup ของทุกเมนูแทน (ดู extrasGroup ด้านล่าง)
-  // เลยตัดออกจากแท็บ "รายการด่วน" กันซ้ำซ้อน 2 ที่
-  const EXTRAS_CATEGORY = "ของทานเล่น ราคาพิเศษ";
+  // "ของทานเล่น ราคาพิเศษ" แนบเป็นกลุ่มตัวเลือกท้าย popup ของเมนูแทน เลยตัดออกจากแท็บ "รายการเพิ่มเติม"
   const presetGroups = useMemo(() => {
     const map = new Map<string, QuickPreset[]>();
     for (const p of presets) {
@@ -112,8 +131,6 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
     return Array.from(map.entries());
   }, [presets]);
 
-  // สร้างกลุ่มตัวเลือก "ของทานเล่น ราคาพิเศษ" จากข้อมูลใน quick_add_presets โดยตรง
-  // (ไม่ hardcode ราคา/รายการในโค้ด แก้ที่ฐานข้อมูลอย่างเดียวพอ)
   const extrasGroup: OptionGroup | null = useMemo(() => {
     const extras = presets.filter((p) => p.category === EXTRAS_CATEGORY);
     if (extras.length === 0) return null;
@@ -125,12 +142,10 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
     };
   }, [presets]);
 
-  // กลุ่มตัวเลือกทั้งหมดที่จะโชว์ใน popup ของเมนูชิ้นนี้: ตัวเลือกเดิมของเมนู (ถ้ามี) + ของทานเล่นราคาพิเศษ
-  // (แนบท้ายทุกหมวด ยกเว้นหมวดเครื่องดื่ม)
   function getModalGroups(item: MenuItem): OptionGroup[] {
     const own = getEffectiveOptions(item)?.groups ?? [];
     const category = (item.category || "").trim();
-    if (category === "เครื่องดื่ม") return own;
+    if (NO_OPTIONS_CATEGORIES.includes(category)) return own;
     return extrasGroup ? [...own, extrasGroup] : own;
   }
 
@@ -272,7 +287,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
     setLines((prev) => prev.filter((l) => l.key !== key));
   }
 
-  const total = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
+  const subtotal = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
+  const discountValue = Number(discount) || 0;
+  const total = Math.max(0, subtotal - discountValue);
 
   async function submitOrder() {
     if (lines.length === 0) {
@@ -289,6 +306,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           platformOrderNo: platformOrderNo || null,
           keyedBy: staffName || null,
           needsUtensils,
+          discount: discountValue,
           items: lines.map((l) => ({
             name: l.name,
             qty: l.qty,
@@ -297,7 +315,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
             note: l.note,
             isCustom: l.isCustom
           })),
-          total
+          total: subtotal
         })
       });
       const data = await res.json();
@@ -309,6 +327,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       setLines([]);
       setPlatformOrderNo("");
       setNeedsUtensils(true);
+      setDiscount("");
     } catch {
       alert("บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ");
     } finally {
@@ -318,18 +337,28 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
   return (
     <div className="pb-10">
+      {/* ข้อ 11: สีคนละโทนของแต่ละแอป — Grab เขียวเข้ม / LINE MAN เขียวสว่าง */}
       <div className="mb-4 flex gap-2">
-        {(["grab", "lineman"] as const).map((c) => (
-          <button
-            key={c}
-            onClick={() => setChannel(c)}
-            className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium ${
-              channel === c ? "bg-forest text-sand" : "bg-white text-ink/60 border border-forest/15"
-            }`}
-          >
-            {c === "grab" ? "Grab" : "LINE MAN"}
-          </button>
-        ))}
+        <button
+          onClick={() => setChannel("grab")}
+          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
+            channel === "grab"
+              ? "bg-green-700 text-white shadow-sm"
+              : "bg-white text-ink/60 border border-forest/15"
+          }`}
+        >
+          Grab
+        </button>
+        <button
+          onClick={() => setChannel("lineman")}
+          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
+            channel === "lineman"
+              ? "bg-lime-400 text-ink shadow-sm"
+              : "bg-white text-ink/60 border border-forest/15"
+          }`}
+        >
+          LINE MAN
+        </button>
       </div>
 
       <input
@@ -339,26 +368,6 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         placeholder="เลขออเดอร์แพลตฟอร์ม (ไม่บังคับ) เช่น GR-48213"
         className="mb-4 w-full rounded-xl border border-forest/15 px-3 py-2 text-sm"
       />
-
-      <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
-      <div className="mb-4 flex gap-2">
-        <button
-          onClick={() => setNeedsUtensils(true)}
-          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium ${
-            needsUtensils ? "bg-forest text-sand" : "bg-white text-ink/60 border border-forest/15"
-          }`}
-        >
-          รับช้อนส้อม
-        </button>
-        <button
-          onClick={() => setNeedsUtensils(false)}
-          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium ${
-            !needsUtensils ? "bg-forest text-sand" : "bg-white text-ink/60 border border-forest/15"
-          }`}
-        >
-          ไม่รับช้อนส้อม
-        </button>
-      </div>
 
       <p className="mb-2 text-sm font-semibold text-ink">รายการ ({lines.length})</p>
       {lines.length === 0 && (
@@ -390,14 +399,46 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         ))}
       </div>
 
+      {/* ข้อ 3: ปุ่มช้อนส้อม ย้ายมาอยู่ใต้ "รายการ" สีเขียว/แดงตามสถานะ */}
+      <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setNeedsUtensils(true)}
+          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
+            needsUtensils ? "bg-green-600 text-white" : "bg-white text-ink/60 border border-forest/15"
+          }`}
+        >
+          รับช้อนส้อม
+        </button>
+        <button
+          onClick={() => setNeedsUtensils(false)}
+          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
+            !needsUtensils ? "bg-red-600 text-white" : "bg-white text-ink/60 border border-forest/15"
+          }`}
+        >
+          ไม่รับช้อนส้อม
+        </button>
+      </div>
+
+      {/* ข้อ 2: ปุ่มเพิ่มรายการจากเมนู ให้ชัด/โดดเด่นขึ้น */}
       <button
         onClick={() => { setPickerMode("menu"); setPickerOpen(true); }}
-        className="mb-4 w-full rounded-full border border-dashed border-forest/30 py-2.5 text-sm text-forestDark"
+        className="mb-4 flex w-full items-center justify-center gap-2 rounded-full bg-forest py-3.5 text-base font-semibold text-sand shadow-md active:scale-[0.99] transition-transform"
       >
-        + เพิ่มรายการจากเมนู
+        <span className="text-lg leading-none">＋</span> เพิ่มรายการจากเมนู
       </button>
 
-      <div className="flex items-center justify-between border-t border-forest/10 pt-3 mb-4">
+      <div className="flex items-center justify-between border-t border-forest/10 pt-3 mb-1">
+        <span className="text-sm text-ink/60">ยอดรวมรายการ</span>
+        <span className="text-base text-ink">{subtotal.toFixed(0)} บาท</span>
+      </div>
+      {discountValue > 0 && (
+        <div className="flex items-center justify-between pb-1">
+          <span className="text-sm text-red-600">ส่วนลด</span>
+          <span className="text-base text-red-600">−{discountValue.toFixed(0)} บาท</span>
+        </div>
+      )}
+      <div className="flex items-center justify-between pb-3 mb-4">
         <span className="text-sm text-ink/60">รวมทั้งหมด</span>
         <span className="text-xl font-semibold text-forestDark">{total.toFixed(0)} บาท</span>
       </div>
@@ -412,152 +453,191 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
       {pickerOpen && !optionItem && (
         <div className="fixed inset-0 z-20 flex items-end bg-ink/40">
-          <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6">
-            <div className="mb-4 flex items-center justify-between">
+          <div className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white">
+            <div className="flex items-center justify-between p-6 pb-4">
               <h3 className="text-lg font-semibold text-forestDark">เพิ่มรายการ</h3>
               <button onClick={() => setPickerOpen(false)} className="text-sm text-ink/50">ปิด</button>
             </div>
 
-            <div className="mb-4 flex gap-2">
-              <button
-                onClick={() => setPickerMode("menu")}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${pickerMode === "menu" ? "bg-forest text-sand" : "bg-forest/5 text-ink/60"}`}
-              >
-                เลือกจากเมนู
-              </button>
-              <button
-                onClick={() => setPickerMode("quick")}
-                className={`flex-1 rounded-full py-2 text-sm font-medium ${pickerMode === "quick" ? "bg-forest text-sand" : "bg-forest/5 text-ink/60"}`}
-              >
-                รายการด่วน
-              </button>
+            <div className="px-6">
+              <div className="mb-4 flex gap-2">
+                <button
+                  onClick={() => setPickerMode("menu")}
+                  className={`flex-1 rounded-full py-2 text-sm font-medium ${pickerMode === "menu" ? "bg-forest text-sand" : "bg-forest/5 text-ink/60"}`}
+                >
+                  เลือกจากเมนู
+                </button>
+                <button
+                  onClick={() => setPickerMode("quick")}
+                  className={`flex-1 rounded-full py-2 text-sm font-medium ${pickerMode === "quick" ? "bg-forest text-sand" : "bg-forest/5 text-ink/60"}`}
+                >
+                  รายการเพิ่มเติม
+                </button>
+              </div>
             </div>
 
-            {pickerMode === "menu" && (
-              <div>
-                {menuGroups.map(([category, items]) => (
-                  <div key={category} className="mb-4">
-                    <p className="mb-2 text-sm font-medium text-ink">{category}</p>
-                    <div className="space-y-2">
-                      {items.map((item) => (
-                        <div key={item.id} className="flex items-center justify-between rounded-xl border border-forest/10 p-3">
-                          <div>
-                            <p className="text-sm text-ink">{getEffectiveName(item)}</p>
-                            <p className="text-xs text-[#8B3A2B]">{getEffectivePrice(item).toFixed(0)} บาท</p>
-                          </div>
-                          <button
-                            onClick={() => openMenuItem(item)}
-                            className="rounded-full bg-forest px-4 py-1.5 text-sm text-sand"
-                          >
-                            +
-                          </button>
-                        </div>
-                      ))}
+            <div className="overflow-y-auto px-6 pb-6">
+              {pickerMode === "menu" && (
+                <div>
+                  {menuGroups.map(([category, items]) => (
+                    <div key={category} className="mb-5">
+                      {/* ข้อ 6: หัวข้อหมวดหมู่ ให้โดดเด่นขึ้น เป็นแถบสีคั่นชัดเจน + sticky ตอนเลื่อน */}
+                      <p className="sticky top-0 z-10 mb-2 -mx-6 bg-forest px-6 py-1.5 text-sm font-semibold text-sand">
+                        {category}
+                      </p>
+                      <div className="space-y-2">
+                        {items.map((item) => {
+                          const img = getDeliveryImage(item);
+                          return (
+                            <div key={item.id} className="flex items-center justify-between rounded-xl border border-forest/10 p-3">
+                              <div className="flex items-center gap-3">
+                                {img && (
+                                  // ข้อ 7: รูปเฉพาะหน้าคีย์ออเดอร์ แยกจากรูปเมนูออนไลน์
+                                  <img src={img} alt={getEffectiveName(item)} className="h-12 w-12 flex-none rounded-lg object-cover" />
+                                )}
+                                <div>
+                                  <p className="text-sm text-ink">{getEffectiveName(item)}</p>
+                                  <p className="text-xs text-[#8B3A2B]">{getEffectivePrice(item).toFixed(0)} บาท</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => openMenuItem(item)}
+                                className="rounded-full bg-forest px-4 py-1.5 text-sm text-sand"
+                              >
+                                +
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {pickerMode === "quick" && (
-              <div>
-                {presetGroups.map(([category, items]) => (
-                  <div key={category} className="mb-4">
-                    <p className="mb-2 text-sm font-medium text-ink">{category}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {items.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => addPreset(p)}
-                          className="rounded-xl bg-forest/5 px-3 py-2 text-xs text-ink"
-                        >
-                          {p.name} {p.price > 0 ? `+${p.price}` : ""}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {presetGroups.length === 0 && (
-                  <p className="mb-3 text-xs text-ink/40">
-                    ยังไม่มีรายการด่วนตั้งไว้ — พิมพ์เองด้านล่างไปก่อนได้ครับ
-                  </p>
-                )}
-                <div className="rounded-xl border border-dashed border-forest/30 p-3">
-                  <p className="mb-2 text-xs font-medium text-ink">พิมพ์เอง</p>
-                  <input
-                    value={customName}
-                    onChange={(e) => setCustomName(e.target.value)}
-                    placeholder="ชื่อรายการ"
-                    className="mb-2 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
-                  />
-                  <input
-                    type="number"
-                    value={customPrice}
-                    onChange={(e) => setCustomPrice(e.target.value)}
-                    placeholder="ราคา (บาท)"
-                    className="mb-2 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
-                  />
-                  <button
-                    onClick={addCustomManual}
-                    className="w-full rounded-full bg-forest py-2 text-sm text-sand"
-                  >
-                    เพิ่มลงออเดอร์
-                  </button>
+                  ))}
                 </div>
-              </div>
-            )}
+              )}
+
+              {pickerMode === "quick" && (
+                <div>
+                  {/* ข้อ 9: ส่วนลด อยู่ในแท็บ "รายการเพิ่มเติม" */}
+                  <div className="mb-4 rounded-xl border border-dashed border-forest/30 p-3">
+                    <p className="mb-2 text-xs font-medium text-ink">ส่วนลด (บาท)</p>
+                    <input
+                      type="number"
+                      value={discount}
+                      onChange={(e) => setDiscount(e.target.value)}
+                      placeholder="เช่น 20"
+                      className="w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+                    />
+                  </div>
+
+                  {presetGroups.map(([category, items]) => (
+                    <div key={category} className="mb-4">
+                      <p className="mb-2 text-sm font-medium text-ink">{category}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {items.map((p) => (
+                          <button
+                            key={p.id}
+                            onClick={() => addPreset(p)}
+                            className="rounded-xl bg-forest/5 px-3 py-2 text-xs text-ink"
+                          >
+                            {p.name} {p.price > 0 ? `+${p.price}` : ""}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {presetGroups.length === 0 && (
+                    <p className="mb-3 text-xs text-ink/40">
+                      ยังไม่มีรายการด่วนตั้งไว้ — พิมพ์เองด้านล่างไปก่อนได้ครับ
+                    </p>
+                  )}
+                  <div className="rounded-xl border border-dashed border-forest/30 p-3">
+                    <p className="mb-2 text-xs font-medium text-ink">พิมพ์เอง</p>
+                    <input
+                      value={customName}
+                      onChange={(e) => setCustomName(e.target.value)}
+                      placeholder="ชื่อรายการ"
+                      className="mb-2 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+                    />
+                    <input
+                      type="number"
+                      value={customPrice}
+                      onChange={(e) => setCustomPrice(e.target.value)}
+                      placeholder="ราคา (บาท)"
+                      className="mb-2 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+                    />
+                    <button
+                      onClick={addCustomManual}
+                      className="w-full rounded-full bg-forest py-2 text-sm text-sand"
+                    >
+                      เพิ่มลงออเดอร์
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {optionItem && (
         <div className="fixed inset-0 z-30 flex items-end bg-ink/40">
-          <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6">
-            <div className="mb-4 flex items-center justify-between">
+          {/* ข้อ 4: สไลด์ขวาเพื่อปิด (ไม่บันทึก) / ข้อ 8: ปุ่มยืนยันลอยอยู่ล่างเสมอ ไม่จมไปกับเนื้อหา */}
+          <div
+            className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white"
+            onTouchStart={handleModalTouchStart}
+            onTouchEnd={handleModalTouchEnd}
+          >
+            <div className="flex items-center justify-between p-6 pb-4">
               <h3 className="text-lg font-semibold text-forestDark">{getEffectiveName(optionItem)}</h3>
               <button onClick={() => setOptionItem(null)} className="text-sm text-ink/50">ปิด</button>
             </div>
-            <div className="space-y-6">
-              {getModalGroups(optionItem).map((group) => (
-                <div key={group.name}>
-                  <p className="mb-2 font-medium text-ink">
-                    {group.name}
-                    {group.required && <span className="ml-1 text-sm text-turmeric">(ต้องเลือก)</span>}
-                  </p>
-                  <div className="space-y-2">
-                    {group.choices.map((choice) => {
-                      const selected = (modalSelections[group.name] ?? []).includes(choice.label);
-                      return (
-                        <button
-                          key={choice.label}
-                          onClick={() => toggleChoice(group, choice.label)}
-                          className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
-                            selected ? "border-forest bg-forest/10" : "border-forest/15"
-                          }`}
-                        >
-                          <span>{choice.label}</span>
-                          <span className="text-sm text-ink/50">
-                            {choice.price_diff > 0 ? `+${choice.price_diff}` : ""}
-                          </span>
-                        </button>
-                      );
-                    })}
+
+            <div className="flex-1 overflow-y-auto px-6">
+              <div className="space-y-6">
+                {getModalGroups(optionItem).map((group) => (
+                  <div key={group.name}>
+                    <p className="mb-2 font-medium text-ink">
+                      {group.name}
+                      {group.required && <span className="ml-1 text-sm text-turmeric">(ต้องเลือก)</span>}
+                    </p>
+                    <div className="space-y-2">
+                      {group.choices.map((choice) => {
+                        const selected = (modalSelections[group.name] ?? []).includes(choice.label);
+                        return (
+                          <button
+                            key={choice.label}
+                            onClick={() => toggleChoice(group, choice.label)}
+                            className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
+                              selected ? "border-forest bg-forest/10" : "border-forest/15"
+                            }`}
+                          >
+                            <span>{choice.label}</span>
+                            <span className="text-sm text-ink/50">
+                              {choice.price_diff > 0 ? `+${choice.price_diff}` : ""}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+
+              <div className="mt-6 mb-4">
+                <p className="mb-2 text-sm font-medium text-ink">โน้ตเพิ่มเติม (ไม่บังคับ)</p>
+                <input
+                  value={modalNote}
+                  onChange={(e) => setModalNote(e.target.value)}
+                  placeholder="เช่น ไม่เผ็ด, แยกน้ำจิ้ม"
+                  className="w-full rounded-lg border border-forest/15 px-3 py-2 text-sm"
+                />
+              </div>
             </div>
 
-            <div className="mt-6">
-              <p className="mb-2 text-sm font-medium text-ink">โน้ตเพิ่มเติม (ไม่บังคับ)</p>
-              <input
-                value={modalNote}
-                onChange={(e) => setModalNote(e.target.value)}
-                placeholder="เช่น ไม่เผ็ด, แยกน้ำจิ้ม"
-                className="mb-4 w-full rounded-lg border border-forest/15 px-3 py-2 text-sm"
-              />
+            <div className="border-t border-forest/10 p-4">
               <button
                 onClick={confirmOptions}
-                className="w-full rounded-full bg-forest py-3 font-medium text-sand"
+                className="w-full rounded-full bg-forest py-3 font-medium text-sand shadow-md"
               >
                 ยืนยัน
               </button>
