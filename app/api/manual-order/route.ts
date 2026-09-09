@@ -4,8 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { channel, platformOrderNo, keyedBy, needsUtensils, items, total } = body;
+    const { channel, platformOrderNo, keyedBy, needsUtensils, discount, items, total } = body;
     // channel: "grab" | "lineman"
+    const discountAmount = Number(discount) || 0;
+    const totalAmount = Math.max(0, Number(total) - discountAmount);
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL as string,
       process.env.SUPABASE_SERVICE_ROLE_KEY as string
@@ -20,9 +22,9 @@ export async function POST(request: NextRequest) {
         needs_utensils: needsUtensils ?? true,
         items,
         subtotal: total,
-        discount: 0,
+        discount: discountAmount,
         fee: 0,
-        total_amount: total,
+        total_amount: totalAmount,
         reconciled: false,
         status: "new"
       })
