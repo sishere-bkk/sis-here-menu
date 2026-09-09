@@ -21,12 +21,28 @@ const CATEGORY_ORDER = [
   "สลัด และของทานเล่น"
 ];
 
+// รูปไอคอนของแต่ละหมวดหมู่ใน sidebar — ถ้าหมวดไหนไม่มีรูปใน list นี้ จะไม่โชว์รูป (ไม่พัง)
+const CATEGORY_IMAGES: Record<string, string> = {
+  "อาหารเช้า": "/categories/breakfast.jpg",
+  "สปาเก็ตตี้": "/categories/spaghetti.jpg",
+  "อาหารจานเดียว": "/categories/rice.jpg",
+  "ข้าว": "/categories/rice.jpg",
+  "ข้าวผัด": "/categories/fried-rice.jpg",
+  "สลัด และของทานเล่น": "/categories/salad.jpg",
+  "สลัดและของทานเล่น": "/categories/salad.jpg"
+};
+
 function categoryRank(category: string) {
   const normalized = category.normalize("NFC").trim();
   const index = CATEGORY_ORDER.findIndex(
     (c) => c.normalize("NFC").trim() === normalized
   );
   return index === -1 ? CATEGORY_ORDER.length : index;
+}
+
+function categoryImage(category: string) {
+  const normalized = category.normalize("NFC").trim();
+  return CATEGORY_IMAGES[normalized] ?? null;
 }
 
 function MenuPageInner() {
@@ -49,6 +65,9 @@ function MenuPageInner() {
   const [takeawayConfirmed, setTakeawayConfirmed] = useState(false);
   const [customerName, setCustomerName] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
+  const [dineOption, setDineOption] = useState<"takeaway" | "dinein">(
+    "takeaway"
+  );
 
   const [items, setItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -202,6 +221,8 @@ function MenuPageInner() {
     0
   );
 
+  const dineLabel = dineOption === "dinein" ? "ทานที่ร้าน" : "สั่งกลับบ้าน";
+
   async function submitOrder() {
     if (submitting || cartLines.length === 0) return;
     setSubmitting(true);
@@ -212,7 +233,8 @@ function MenuPageInner() {
         body: JSON.stringify({
           orderType,
           tableNumber: tableParam ?? null,
-          customerName: orderType === "takeaway" ? customerName : null,
+          customerName:
+            orderType === "takeaway" ? `${customerName} (${dineLabel})` : null,
           customerPhone: orderType === "takeaway" ? customerPhone : null,
           items: cartLines.map((line) => ({
             name: line.item.name,
@@ -273,7 +295,7 @@ function MenuPageInner() {
             SiS HERE
           </h1>
           <p className="mb-6 text-sm text-ink/60">
-            สั่งกลับบ้าน — กรอกชื่อและเบอร์โทรก่อนนะครับ
+            กรอกชื่อและเบอร์โทรก่อนนะครับ
           </p>
           <label className="mb-1 block text-sm text-ink/70">ชื่อ</label>
           <input
@@ -287,8 +309,33 @@ function MenuPageInner() {
             type="tel"
             value={customerPhone}
             onChange={(e) => setCustomerPhone(e.target.value)}
-            className="mb-6 w-full rounded-xl border border-forest/15 px-3 py-2"
+            className="mb-4 w-full rounded-xl border border-forest/15 px-3 py-2"
           />
+          <p className="mb-2 block text-sm text-ink/70">รับอาหารแบบไหน</p>
+          <div className="mb-6 grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setDineOption("takeaway")}
+              className={`rounded-xl border py-3 text-sm font-medium ${
+                dineOption === "takeaway"
+                  ? "border-forest bg-forest/10 text-forestDark"
+                  : "border-forest/15 text-ink/60"
+              }`}
+            >
+              สั่งกลับบ้าน
+            </button>
+            <button
+              type="button"
+              onClick={() => setDineOption("dinein")}
+              className={`rounded-xl border py-3 text-sm font-medium ${
+                dineOption === "dinein"
+                  ? "border-forest bg-forest/10 text-forestDark"
+                  : "border-forest/15 text-ink/60"
+              }`}
+            >
+              ทานที่ร้าน
+            </button>
+          </div>
           <button
             disabled={!customerName || !customerPhone}
             onClick={() => setTakeawayConfirmed(true)}
@@ -315,7 +362,7 @@ function MenuPageInner() {
             {orderType === "table"
               ? `เมนูออนไลน์ · โต๊ะ ${tableParam}`
               : orderType === "takeaway"
-              ? `เมนูออนไลน์ · สั่งกลับบ้าน (${customerName})`
+              ? `เมนูออนไลน์ · ${dineLabel} (${customerName})`
               : "เมนูออนไลน์"}
           </p>
           <h1 className="font-display text-xl font-semibold text-forestDark sm:text-3xl">
@@ -337,27 +384,44 @@ function MenuPageInner() {
           <nav className="sticky top-0 h-[calc(100vh-1px)] w-20 flex-none overflow-y-auto border-r border-forest/10 bg-white py-4 sm:w-32">
             <button
               onClick={() => setSelectedCategory("all")}
-              className={`block w-full py-3 pl-4 pr-2 text-center text-xs sm:text-sm ${
+              className={`flex w-full flex-col items-center gap-1 py-3 pl-2 pr-2 text-center text-xs sm:text-sm ${
                 selectedCategory === "all"
                   ? "border-l-4 border-turmeric bg-forest/5 font-semibold text-forestDark"
                   : "text-ink/60"
               }`}
             >
-              ทั้งหมด
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/categories/all.jpg"
+                alt="ทั้งหมด"
+                className="h-10 w-10 rounded-full object-cover sm:h-14 sm:w-14"
+              />
+              <span>ทั้งหมด</span>
             </button>
-            {categories.map(([category]) => (
-              <button
-                key={category}
-                onClick={() => setSelectedCategory(category)}
-                className={`block w-full px-2 py-3 text-center text-xs sm:text-sm ${
-                  selectedCategory === category
-                    ? "border-l-4 border-turmeric bg-forest/5 font-semibold text-forestDark"
-                    : "text-ink/60"
-                }`}
-              >
-                {category}
-              </button>
-            ))}
+            {categories.map(([category]) => {
+              const img = categoryImage(category);
+              return (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`flex w-full flex-col items-center gap-1 px-2 py-3 text-center text-xs sm:text-sm ${
+                    selectedCategory === category
+                      ? "border-l-4 border-turmeric bg-forest/5 font-semibold text-forestDark"
+                      : "text-ink/60"
+                  }`}
+                >
+                  {img && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={img}
+                      alt={category}
+                      className="h-10 w-10 rounded-full object-cover sm:h-14 sm:w-14"
+                    />
+                  )}
+                  <span>{category}</span>
+                </button>
+              );
+            })}
           </nav>
 
           <div className="flex-1 space-y-10 px-4 py-6 sm:px-6">
@@ -415,78 +479,82 @@ function MenuPageInner() {
 
       {optionItem && (
         <div className="fixed inset-0 z-20 flex items-end bg-ink/40">
-          <div className="max-h-[85vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-forestDark">
-                {optionItem.name}
-              </h3>
+          <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl bg-white">
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-forestDark">
+                  {optionItem.name}
+                </h3>
+                <button
+                  onClick={() => setOptionItem(null)}
+                  className="text-sm text-ink/50"
+                >
+                  ปิด
+                </button>
+              </div>
+
+              {hasOptions(optionItem) && (
+                <div className="space-y-6">
+                  {optionItem.options!.groups.map((group) => (
+                    <div key={group.name}>
+                      <p className="mb-2 font-medium text-ink">
+                        {group.name}
+                        {group.required && (
+                          <span className="ml-1 text-sm text-turmeric">
+                            (ต้องเลือก)
+                          </span>
+                        )}
+                      </p>
+                      <div className="space-y-2">
+                        {group.choices.map((choice) => {
+                          const selected = (
+                            modalSelections[group.name] ?? []
+                          ).includes(choice.label);
+                          return (
+                            <button
+                              key={choice.label}
+                              onClick={() => toggleChoice(group, choice.label)}
+                              className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
+                                selected
+                                  ? "border-forest bg-forest/10"
+                                  : "border-forest/15"
+                              }`}
+                            >
+                              <span>{choice.label}</span>
+                              <span className="text-sm text-ink/50">
+                                {choice.price_diff > 0
+                                  ? `+${choice.price_diff}`
+                                  : ""}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className={hasOptions(optionItem) ? "mt-6" : ""}>
+                <p className="mb-2 font-medium text-ink">หมายเหตุ (ถ้ามี)</p>
+                <textarea
+                  value={modalNote}
+                  onChange={(e) => setModalNote(e.target.value)}
+                  placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย"
+                  rows={2}
+                  className="w-full rounded-xl border border-forest/15 px-3 py-2 text-sm text-ink placeholder:text-ink/30"
+                />
+              </div>
+            </div>
+
+            <div className="flex-none border-t border-forest/10 bg-white p-4">
               <button
-                onClick={() => setOptionItem(null)}
-                className="text-sm text-ink/50"
+                onClick={confirmOptions}
+                className="w-full rounded-full bg-forest py-3 font-medium text-sand"
               >
-                ปิด
+                เพิ่มลงตะกร้า
               </button>
             </div>
-
-            {hasOptions(optionItem) && (
-              <div className="space-y-6">
-                {optionItem.options!.groups.map((group) => (
-                  <div key={group.name}>
-                    <p className="mb-2 font-medium text-ink">
-                      {group.name}
-                      {group.required && (
-                        <span className="ml-1 text-sm text-turmeric">
-                          (ต้องเลือก)
-                        </span>
-                      )}
-                    </p>
-                    <div className="space-y-2">
-                      {group.choices.map((choice) => {
-                        const selected = (
-                          modalSelections[group.name] ?? []
-                        ).includes(choice.label);
-                        return (
-                          <button
-                            key={choice.label}
-                            onClick={() => toggleChoice(group, choice.label)}
-                            className={`flex w-full items-center justify-between rounded-xl border px-4 py-3 text-left ${
-                              selected
-                                ? "border-forest bg-forest/10"
-                                : "border-forest/15"
-                            }`}
-                          >
-                            <span>{choice.label}</span>
-                            <span className="text-sm text-ink/50">
-                              {choice.price_diff > 0
-                                ? `+${choice.price_diff}`
-                                : ""}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className={hasOptions(optionItem) ? "mt-6" : ""}>
-              <p className="mb-2 font-medium text-ink">หมายเหตุ (ถ้ามี)</p>
-              <textarea
-                value={modalNote}
-                onChange={(e) => setModalNote(e.target.value)}
-                placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย"
-                rows={2}
-                className="w-full rounded-xl border border-forest/15 px-3 py-2 text-sm text-ink placeholder:text-ink/30"
-              />
-            </div>
-
-            <button
-              onClick={confirmOptions}
-              className="mt-6 w-full rounded-full bg-forest py-3 font-medium text-sand"
-            >
-              เพิ่มลงตะกร้า
-            </button>
           </div>
         </div>
       )}
