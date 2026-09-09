@@ -76,6 +76,22 @@ function getCookie(name: string): string {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
+// ข้อ 12: มือถือ/แท็บเล็ตบางรุ่นค้างซูมหลังสั่งพิมพ์ ลองบังคับรีเซ็ต viewport
+// เป็น workaround ที่คนอื่นใช้กันบ่อย ไม่ได้การันตีว่าหายทุกเครื่อง
+function resetZoomAfterPrint() {
+  const viewport = document.querySelector('meta[name="viewport"]');
+  if (!viewport) return;
+  const original = viewport.getAttribute("content");
+  viewport.setAttribute(
+    "content",
+    "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"
+  );
+  window.scrollTo(0, 0);
+  setTimeout(() => {
+    if (original) viewport.setAttribute("content", original);
+  }, 300);
+}
+
 export default function StaffPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test">("orders");
@@ -116,6 +132,7 @@ export default function StaffPage() {
     function handleAfterPrint() {
       markPrinted(printOrder!.id);
       setPrintOrder(null);
+      resetZoomAfterPrint();
     }
     window.addEventListener("afterprint", handleAfterPrint);
     return () => {
