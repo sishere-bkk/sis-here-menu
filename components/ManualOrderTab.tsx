@@ -86,16 +86,6 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
     load();
   }, []);
 
-  const presetGroups = useMemo(() => {
-    const map = new Map<string, QuickPreset[]>();
-    for (const p of presets) {
-      const list = map.get(p.category) ?? [];
-      list.push(p);
-      map.set(p.category, list);
-    }
-    return Array.from(map.entries());
-  }, [presets]);
-
   // จัดกลุ่มเมนูตามหมวด (บาง category ใน DB มีช่องว่างนำหน้าติดมา เลย trim() ก่อนจัดกลุ่ม กันแตกกลุ่มโดยไม่ตั้งใจ)
   const menuGroups = useMemo(() => {
     const map = new Map<string, MenuItem[]>();
@@ -108,8 +98,44 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
     return Array.from(map.entries());
   }, [menuItems]);
 
+  // "ของทานเล่น ราคาพิเศษ" ย้ายไปแนบเป็นกลุ่มตัวเลือกท้าย popup ของทุกเมนูแทน (ดู extrasGroup ด้านล่าง)
+  // เลยตัดออกจากแท็บ "รายการด่วน" กันซ้ำซ้อน 2 ที่
+  const EXTRAS_CATEGORY = "ของทานเล่น ราคาพิเศษ";
+  const presetGroups = useMemo(() => {
+    const map = new Map<string, QuickPreset[]>();
+    for (const p of presets) {
+      if (p.category === EXTRAS_CATEGORY) continue;
+      const list = map.get(p.category) ?? [];
+      list.push(p);
+      map.set(p.category, list);
+    }
+    return Array.from(map.entries());
+  }, [presets]);
+
+  // สร้างกลุ่มตัวเลือก "ของทานเล่น ราคาพิเศษ" จากข้อมูลใน quick_add_presets โดยตรง
+  // (ไม่ hardcode ราคา/รายการในโค้ด แก้ที่ฐานข้อมูลอย่างเดียวพอ)
+  const extrasGroup: OptionGroup | null = useMemo(() => {
+    const extras = presets.filter((p) => p.category === EXTRAS_CATEGORY);
+    if (extras.length === 0) return null;
+    return {
+      name: EXTRAS_CATEGORY,
+      type: "multi",
+      required: false,
+      choices: extras.map((p) => ({ label: p.name, price_diff: p.price }))
+    };
+  }, [presets]);
+
+  // กลุ่มตัวเลือกทั้งหมดที่จะโชว์ใน popup ของเมนูชิ้นนี้: ตัวเลือกเดิมของเมนู (ถ้ามี) + ของทานเล่นราคาพิเศษ
+  // (แนบท้ายทุกหมวด ยกเว้นหมวดเครื่องดื่ม)
+  function getModalGroups(item: MenuItem): OptionGroup[] {
+    const own = getEffectiveOptions(item)?.groups ?? [];
+    const category = (item.category || "").trim();
+    if (category === "เครื่องดื่ม") return own;
+    return extrasGroup ? [...own, extrasGroup] : own;
+  }
+
   function hasOptions(item: MenuItem) {
-    return !!getEffectiveOptions(item)?.groups?.length;
+    return getModalGroups(item).length > 0;
   }
 
   function openMenuItem(item: MenuItem) {
@@ -128,9 +154,8 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       setPickerOpen(false);
       return;
     }
-    const effectiveOptions = getEffectiveOptions(item);
     const initial: Record<string, string[]> = {};
-    for (const g of effectiveOptions!.groups) initial[g.name] = [];
+    for (const g of getModalGroups(item)) initial[g.name] = [];
     setModalSelections(initial);
     setModalNote("");
     setOptionItem(item);
@@ -152,15 +177,15 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
   function confirmOptions() {
     if (!optionItem) return;
-    const effectiveOptions = getEffectiveOptions(optionItem);
-    for (const g of effectiveOptions?.groups ?? []) {
+    const groups = getModalGroups(optionItem);
+    for (const g of groups) {
       if (g.required && (modalSelections[g.name] ?? []).length === 0) {
         alert(`กรุณาเลือก "${g.name}" ก่อนครับ`);
         return;
       }
     }
     let priceDiff = 0;
-    for (const g of effectiveOptions?.groups ?? []) {
+    for (const g of groups) {
       const selected = modalSelections[g.name] ?? [];
       for (const c of g.choices) if (selected.includes(c.label)) priceDiff += c.price_diff;
     }
@@ -493,7 +518,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
               <button onClick={() => setOptionItem(null)} className="text-sm text-ink/50">ปิด</button>
             </div>
             <div className="space-y-6">
-              {getEffectiveOptions(optionItem)!.groups.map((group) => (
+              {getModalGroups(optionItem).map((group) => (
                 <div key={group.name}>
                   <p className="mb-2 font-medium text-ink">
                     {group.name}
