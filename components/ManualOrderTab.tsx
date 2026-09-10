@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase, MenuItem, OptionGroup } from "../lib/supabaseClient";
 
 type QuickPreset = {
@@ -60,7 +60,8 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
   const [channel, setChannel] = useState<"grab" | "lineman">("grab");
   const [platformOrderNo, setPlatformOrderNo] = useState("");
   const [needsUtensils, setNeedsUtensils] = useState(true);
-  const [discount, setDiscount] = useState("");
+  const [discountInput, setDiscountInput] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [presets, setPresets] = useState<QuickPreset[]>([]);
@@ -78,59 +79,6 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
   const [submitting, setSubmitting] = useState(false);
 
-  // ข้อ 4: สไลด์ขวาเพื่อปิด popup ตัวเลือก (เหมือนปุ่มปิด ไม่บันทึกอะไร)
-  // ใช้ native touch listener (passive:false) เพื่อ preventDefault ไม่ให้เบราว์เซอร์ตีความเป็น "ย้อนกลับหน้า"
-  // แต่มือถือบางรุ่น/บางเบราว์เซอร์ (โดยเฉพาะ gesture navigation ของระบบ) ยังอาจแย่งพฤติกรรมนี้ไปได้อยู่ดี
-  const modalPanelRef = useRef<HTMLDivElement | null>(null);
-  const swipeStateRef = useRef<{ x: number; y: number; dragging: boolean } | null>(null);
-
-  useEffect(() => {
-    const el = modalPanelRef.current;
-    if (!el || !optionItem) return;
-
-    function onTouchStart(e: TouchEvent) {
-      const t = e.touches[0];
-      // ไม่เริ่มจับถ้าลากมาจากขอบจอซ้ายสุด (กันชนกับ gesture ย้อนกลับของระบบ)
-      if (t.clientX < 24) return;
-      swipeStateRef.current = { x: t.clientX, y: t.clientY, dragging: false };
-    }
-    function onTouchMove(e: TouchEvent) {
-      const state = swipeStateRef.current;
-      if (!state) return;
-      const t = e.touches[0];
-      const dx = t.clientX - state.x;
-      const dy = t.clientY - state.y;
-      if (!state.dragging) {
-        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
-          state.dragging = true;
-        } else if (Math.abs(dy) > 10) {
-          swipeStateRef.current = null;
-          return;
-        }
-      }
-      if (state.dragging && dx > 0) {
-        e.preventDefault();
-      }
-    }
-    function onTouchEnd(e: TouchEvent) {
-      const state = swipeStateRef.current;
-      swipeStateRef.current = null;
-      if (!state || !state.dragging) return;
-      const t = e.changedTouches[0];
-      const dx = t.clientX - state.x;
-      if (dx > 70) setOptionItem(null);
-    }
-
-    el.addEventListener("touchstart", onTouchStart, { passive: true });
-    el.addEventListener("touchmove", onTouchMove, { passive: false });
-    el.addEventListener("touchend", onTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onTouchStart);
-      el.removeEventListener("touchmove", onTouchMove);
-      el.removeEventListener("touchend", onTouchEnd);
-    };
-  }, [optionItem]);
-
   useEffect(() => {
     async function load() {
       // ดึงเมนูทั้งหมดที่ available=true มาให้ครบ (รวมเมนู delivery_only ด้วย)
@@ -146,6 +94,17 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
   }, []);
 
   // จัดกลุ่มเมนูตามหมวด (บาง category ใน DB มีช่องว่างนำหน้าติดมา เลย trim() ก่อนจัดกลุ่ม กันแตกกลุ่มโดยไม่ตั้งใจ)
+  // ลำดับหมวดที่ต้องการให้เรียงตอนเลือกเมนู หมวดที่ไม่ได้ระบุไว้จะต่อท้ายตามลำดับที่เจอ
+  const CATEGORY_ORDER = [
+    "อร่อยซ่ากับโค้ก",
+    "เซตสุดฮิต",
+    "อาหารเช้า",
+    "สปาเก็ตตี้",
+    "ข้าวผัด",
+    "ข้าว",
+    "สลัดและของทานเล่น"
+  ];
+
   const menuGroups = useMemo(() => {
     const map = new Map<string, MenuItem[]>();
     for (const item of menuItems) {
@@ -154,7 +113,15 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       list.push(item);
       map.set(cat, list);
     }
-    return Array.from(map.entries());
+    const entries = Array.from(map.entries());
+    entries.sort((a, b) => {
+      const ia = CATEGORY_ORDER.indexOf(a[0]);
+      const ib = CATEGORY_ORDER.indexOf(b[0]);
+      const ra = ia === -1 ? CATEGORY_ORDER.length : ia;
+      const rb = ib === -1 ? CATEGORY_ORDER.length : ib;
+      return ra - rb;
+    });
+    return entries;
   }, [menuItems]);
 
   // "ของทานเล่น ราคาพิเศษ" แนบเป็นกลุ่มตัวเลือกท้าย popup ของเมนูแทน เลยตัดออกจากแท็บ "รายการเพิ่มเติม"
@@ -184,6 +151,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
     const own = getEffectiveOptions(item)?.groups ?? [];
     const category = (item.category || "").trim();
     if (NO_OPTIONS_CATEGORIES.includes(category)) return own;
+    // เซตสุดฮิต ใส่ "ของทานเล่น ราคาพิเศษ" ต่อรายการในเซตไว้ใน delivery_options โดยตรงแล้ว (ทำ SQL แยก)
+    // เลยไม่ให้ระบบแนบกลุ่มนี้ซ้ำเข้าไปอีกชั้นสำหรับหมวดนี้
+    if (category === "เซตสุดฮิต") return own;
     return extrasGroup ? [...own, extrasGroup] : own;
   }
 
@@ -326,8 +296,12 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
   }
 
   const subtotal = lines.reduce((sum, l) => sum + l.qty * l.unitPrice, 0);
-  const discountValue = Number(discount) || 0;
+  const discountValue = appliedDiscount;
   const total = Math.max(0, subtotal - discountValue);
+
+  function confirmDiscount() {
+    setAppliedDiscount(Number(discountInput) || 0);
+  }
 
   async function submitOrder() {
     if (lines.length === 0) {
@@ -365,7 +339,8 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       setLines([]);
       setPlatformOrderNo("");
       setNeedsUtensils(true);
-      setDiscount("");
+      setDiscountInput("");
+      setAppliedDiscount(0);
     } catch {
       alert("บันทึกไม่สำเร็จ ลองใหม่อีกครั้งครับ");
     } finally {
@@ -393,7 +368,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           className="flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors border"
           style={
             channel === "lineman"
-              ? { backgroundColor: "#8BD84A", color: "#153A1E", borderColor: "#8BD84A" }
+              ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
               : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
           }
         >
@@ -454,7 +429,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           className="flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors border"
           style={
             needsUtensils
-              ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
+              ? { backgroundColor: "#0D9488", color: "#ffffff", borderColor: "#0D9488" }
               : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
           }
         >
@@ -570,11 +545,20 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                     <p className="mb-2 text-xs font-medium text-ink">ส่วนลด (บาท)</p>
                     <input
                       type="number"
-                      value={discount}
-                      onChange={(e) => setDiscount(e.target.value)}
+                      value={discountInput}
+                      onChange={(e) => setDiscountInput(e.target.value)}
                       placeholder="เช่น 20"
-                      className="w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+                      className="mb-2 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
                     />
+                    <button
+                      onClick={confirmDiscount}
+                      className="w-full rounded-full bg-forest py-2 text-sm text-sand"
+                    >
+                      ยืนยันส่วนลด
+                    </button>
+                    {appliedDiscount > 0 && (
+                      <p className="mt-2 text-xs text-red-600">ใช้ส่วนลดอยู่ {appliedDiscount.toFixed(0)} บาท</p>
+                    )}
                   </div>
 
                   {presetGroups.map(([category, items]) => (
@@ -630,10 +614,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       {optionItem && (
         <div className="fixed inset-0 z-30 flex items-end bg-ink/40">
           {/* ข้อ 4: สไลด์ขวาเพื่อปิด (ไม่บันทึก) / ข้อ 8: ปุ่มยืนยันลอยอยู่ล่างเสมอ ไม่จมไปกับเนื้อหา */}
-          <div
-            ref={modalPanelRef}
-            className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white"
-          >
+          <div className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white">
             <div className="flex items-center justify-between p-6 pb-4">
               <h3 className="text-lg font-semibold text-forestDark">{getEffectiveName(optionItem)}</h3>
               <button onClick={() => setOptionItem(null)} className="text-sm text-ink/50">ปิด</button>
