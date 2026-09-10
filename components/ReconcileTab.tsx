@@ -14,12 +14,6 @@ function todayStr() {
   const d = new Date();
   return d.toISOString().slice(0, 10);
 }
-function addDays(dateStr: string, days: number) {
-  const d = new Date(dateStr + "T00:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 export default function ReconcileTab() {
   const [channel, setChannel] = useState<"grab" | "lineman">("grab");
   const [from, setFrom] = useState(todayStr());
@@ -36,8 +30,7 @@ export default function ReconcileTab() {
     setMessage("");
     setOrders(null);
     try {
-      const toExclusive = addDays(to, 1); // รวมถึงวันสุดท้ายที่เลือกด้วย
-      const res = await fetch(`/api/reconcile?channel=${channel}&from=${from}&to=${toExclusive}`);
+      const res = await fetch(`/api/reconcile?channel=${channel}&from=${from}&to=${to}`);
       const data = await res.json();
       if (!res.ok) {
         setMessage("โหลดไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
@@ -61,14 +54,13 @@ export default function ReconcileTab() {
     setSubmitting(true);
     setMessage("");
     try {
-      const toExclusive = addDays(to, 1);
       const res = await fetch("/api/reconcile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           channel,
           from,
-          to: toExclusive,
+          to,
           actualReceived: Number(actualReceived)
         })
       });
