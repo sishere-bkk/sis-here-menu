@@ -79,19 +79,57 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
   const [submitting, setSubmitting] = useState(false);
 
   // ข้อ 4: สไลด์ขวาเพื่อปิด popup ตัวเลือก (เหมือนปุ่มปิด ไม่บันทึกอะไร)
-  const touchStartX = useRef<number | null>(null);
+  // ใช้ native touch listener (passive:false) เพื่อ preventDefault ไม่ให้เบราว์เซอร์ตีความเป็น "ย้อนกลับหน้า"
+  // แต่มือถือบางรุ่น/บางเบราว์เซอร์ (โดยเฉพาะ gesture navigation ของระบบ) ยังอาจแย่งพฤติกรรมนี้ไปได้อยู่ดี
+  const modalPanelRef = useRef<HTMLDivElement | null>(null);
+  const swipeStateRef = useRef<{ x: number; y: number; dragging: boolean } | null>(null);
 
-  function handleModalTouchStart(e: React.TouchEvent) {
-    touchStartX.current = e.touches[0].clientX;
-  }
-  function handleModalTouchEnd(e: React.TouchEvent) {
-    if (touchStartX.current === null) return;
-    const deltaX = e.changedTouches[0].clientX - touchStartX.current;
-    touchStartX.current = null;
-    if (deltaX > 70) {
-      setOptionItem(null);
+  useEffect(() => {
+    const el = modalPanelRef.current;
+    if (!el || !optionItem) return;
+
+    function onTouchStart(e: TouchEvent) {
+      const t = e.touches[0];
+      // ไม่เริ่มจับถ้าลากมาจากขอบจอซ้ายสุด (กันชนกับ gesture ย้อนกลับของระบบ)
+      if (t.clientX < 24) return;
+      swipeStateRef.current = { x: t.clientX, y: t.clientY, dragging: false };
     }
-  }
+    function onTouchMove(e: TouchEvent) {
+      const state = swipeStateRef.current;
+      if (!state) return;
+      const t = e.touches[0];
+      const dx = t.clientX - state.x;
+      const dy = t.clientY - state.y;
+      if (!state.dragging) {
+        if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)) {
+          state.dragging = true;
+        } else if (Math.abs(dy) > 10) {
+          swipeStateRef.current = null;
+          return;
+        }
+      }
+      if (state.dragging && dx > 0) {
+        e.preventDefault();
+      }
+    }
+    function onTouchEnd(e: TouchEvent) {
+      const state = swipeStateRef.current;
+      swipeStateRef.current = null;
+      if (!state || !state.dragging) return;
+      const t = e.changedTouches[0];
+      const dx = t.clientX - state.x;
+      if (dx > 70) setOptionItem(null);
+    }
+
+    el.addEventListener("touchstart", onTouchStart, { passive: true });
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    el.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      el.removeEventListener("touchstart", onTouchStart);
+      el.removeEventListener("touchmove", onTouchMove);
+      el.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [optionItem]);
 
   useEffect(() => {
     async function load() {
@@ -341,21 +379,23 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setChannel("grab")}
-          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
+          className="flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors border"
+          style={
             channel === "grab"
-              ? "bg-green-700 text-white shadow-sm"
-              : "bg-white text-ink/60 border border-forest/15"
-          }`}
+              ? { backgroundColor: "#0F6B3D", color: "#ffffff", borderColor: "#0F6B3D" }
+              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
+          }
         >
           Grab
         </button>
         <button
           onClick={() => setChannel("lineman")}
-          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors ${
+          className="flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors border"
+          style={
             channel === "lineman"
-              ? "bg-lime-400 text-ink shadow-sm"
-              : "bg-white text-ink/60 border border-forest/15"
-          }`}
+              ? { backgroundColor: "#8BD84A", color: "#153A1E", borderColor: "#8BD84A" }
+              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
+          }
         >
           LINE MAN
         </button>
@@ -399,34 +439,39 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         ))}
       </div>
 
-      {/* ข้อ 3: ปุ่มช้อนส้อม ย้ายมาอยู่ใต้ "รายการ" สีเขียว/แดงตามสถานะ */}
-      <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
-      <div className="mb-4 flex gap-2">
-        <button
-          onClick={() => setNeedsUtensils(true)}
-          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
-            needsUtensils ? "bg-green-600 text-white" : "bg-white text-ink/60 border border-forest/15"
-          }`}
-        >
-          รับช้อนส้อม
-        </button>
-        <button
-          onClick={() => setNeedsUtensils(false)}
-          className={`flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors ${
-            !needsUtensils ? "bg-red-600 text-white" : "bg-white text-ink/60 border border-forest/15"
-          }`}
-        >
-          ไม่รับช้อนส้อม
-        </button>
-      </div>
-
-      {/* ข้อ 2: ปุ่มเพิ่มรายการจากเมนู ให้ชัด/โดดเด่นขึ้น */}
+      {/* ข้อ 2/3: ปุ่มเพิ่มรายการจากเมนู อยู่ติดใต้รายการก่อน แล้วค่อยเป็นช้อนส้อม */}
       <button
         onClick={() => { setPickerMode("menu"); setPickerOpen(true); }}
         className="mb-4 flex w-full items-center justify-center gap-2 rounded-full bg-forest py-3.5 text-base font-semibold text-sand shadow-md active:scale-[0.99] transition-transform"
       >
         <span className="text-lg leading-none">＋</span> เพิ่มรายการจากเมนู
       </button>
+
+      <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setNeedsUtensils(true)}
+          className="flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors border"
+          style={
+            needsUtensils
+              ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
+              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
+          }
+        >
+          รับช้อนส้อม
+        </button>
+        <button
+          onClick={() => setNeedsUtensils(false)}
+          className="flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors border"
+          style={
+            !needsUtensils
+              ? { backgroundColor: "#DC2626", color: "#ffffff", borderColor: "#DC2626" }
+              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
+          }
+        >
+          ไม่รับช้อนส้อม
+        </button>
+      </div>
 
       <div className="flex items-center justify-between border-t border-forest/10 pt-3 mb-1">
         <span className="text-sm text-ink/60">ยอดรวมรายการ</span>
@@ -482,7 +527,10 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                   {menuGroups.map(([category, items]) => (
                     <div key={category} className="mb-5">
                       {/* ข้อ 6: หัวข้อหมวดหมู่ ให้โดดเด่นขึ้น เป็นแถบสีคั่นชัดเจน + sticky ตอนเลื่อน */}
-                      <p className="sticky top-0 z-10 mb-2 -mx-6 bg-forest px-6 py-1.5 text-sm font-semibold text-sand">
+                      <p
+                        className="sticky top-0 z-10 mb-2 -mx-6 px-6 py-2 text-sm font-bold uppercase tracking-wide"
+                        style={{ backgroundColor: "#3A2A18", color: "#FCEFC0" }}
+                      >
                         {category}
                       </p>
                       <div className="space-y-2">
@@ -583,9 +631,8 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         <div className="fixed inset-0 z-30 flex items-end bg-ink/40">
           {/* ข้อ 4: สไลด์ขวาเพื่อปิด (ไม่บันทึก) / ข้อ 8: ปุ่มยืนยันลอยอยู่ล่างเสมอ ไม่จมไปกับเนื้อหา */}
           <div
+            ref={modalPanelRef}
             className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-3xl bg-white"
-            onTouchStart={handleModalTouchStart}
-            onTouchEnd={handleModalTouchEnd}
           >
             <div className="flex items-center justify-between p-6 pb-4">
               <h3 className="text-lg font-semibold text-forestDark">{getEffectiveName(optionItem)}</h3>
