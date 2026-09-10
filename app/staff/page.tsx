@@ -97,6 +97,8 @@ export default function StaffPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test" | "reconcile">("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
+  const [acceptedOrders, setAcceptedOrders] = useState<OrderRow[]>([]);
+  const [ordersView, setOrdersView] = useState<"new" | "accepted">("new");
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
   const [staffName, setStaffName] = useState("");
   const isOwner = staffName === OWNER_NAME;
@@ -107,13 +109,18 @@ export default function StaffPage() {
 
   async function loadOrders() {
     try {
-      const res = await fetch("/api/staff-orders");
-      if (res.status === 401) {
+      const [newRes, acceptedRes] = await Promise.all([
+        fetch("/api/staff-orders?status=new"),
+        fetch("/api/staff-orders?status=accepted")
+      ]);
+      if (newRes.status === 401 || acceptedRes.status === 401) {
         router.push("/staff/login");
         return;
       }
-      const data = await res.json();
-      if (res.ok && data.orders) setOrders(data.orders as OrderRow[]);
+      const newData = await newRes.json();
+      const acceptedData = await acceptedRes.json();
+      if (newRes.ok && newData.orders) setOrders(newData.orders as OrderRow[]);
+      if (acceptedRes.ok && acceptedData.orders) setAcceptedOrders(acceptedData.orders as OrderRow[]);
     } catch (err) {
       // ignore, will retry on next poll
     }
@@ -157,7 +164,17 @@ export default function StaffPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action: "accept" })
     });
-    setOrders((prev) => prev.filter((o) => o.id !== id));
+    loadOrders();
+  }
+
+  async function handleUnaccept(id: number) {
+    if (!confirm("ยกเลิกการรับเงินออเดอร์นี้ กลับไปเป็นออเดอร์ใหม่ใช่ไหม?")) return;
+    await fetch("/api/staff-orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "unaccept" })
+    });
+    loadOrders();
   }
 
   async function handleCancel(id: number) {
@@ -229,123 +246,171 @@ export default function StaffPage() {
           </button>
         </div>
 
-        {isOwner && (
-          <div className="mb-6 flex gap-1 rounded-2xl bg-[#8B3A2B]/10 p-1">
-            <button
-              onClick={() => setTab("dashboard")}
-              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
-                tab === "dashboard" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-              }`}
-            >
-              📊 Dashboard
-            </button>
-            <button
-              onClick={() => setTab("test")}
-              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
-                tab === "test" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-              }`}
-            >
-              🧪 ทดสอบ
-            </button>
-            <button
-              onClick={() => setTab("upload")}
-              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
-                tab === "upload" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-              }`}
-            >
-              📷 อัปโหลดรูป
-            </button>
-            <button
-              onClick={() => setTab("reconcile")}
-              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
-                tab === "reconcile" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-              }`}
-            >
-              💰 กระทบยอด
-            </button>
-          </div>
-        )}
+        <div className="flex flex-col gap-4 sm:flex-row">
+          {isOwner && (
+            <div className="flex flex-none gap-1 overflow-x-auto rounded-2xl bg-[#8B3A2B]/10 p-1 sm:w-44 sm:flex-col sm:overflow-visible">
+              <button
+                onClick={() => setTab("dashboard")}
+                className={`flex-none whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
+                  tab === "dashboard" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+                }`}
+              >
+                📊 Dashboard
+              </button>
+              <button
+                onClick={() => setTab("reconcile")}
+                className={`flex-none whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
+                  tab === "reconcile" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+                }`}
+              >
+                💰 กระทบยอด
+              </button>
+              <button
+                onClick={() => setTab("upload")}
+                className={`flex-none whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
+                  tab === "upload" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+                }`}
+              >
+                📷 อัปโหลดรูป
+              </button>
+              <button
+                onClick={() => setTab("test")}
+                className={`flex-none whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
+                  tab === "test" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+                }`}
+              >
+                🧪 ทดสอบ
+              </button>
+            </div>
+          )}
+
+          <div className="min-w-0 flex-1">
 
         {tab === "orders" && (
           <>
-            <p className="mb-6 text-sm text-ink/60">
+            <p className="mb-4 text-sm text-ink/60">
               เปิดหน้านี้ค้างไว้บนคอมหรือแท็บเล็ตที่ต่อกับเครื่องพิมพ์ในร้าน
               รายการจะอัปเดตเองทุก 5 วินาที กดปุ่ม "พิมพ์บิล" เมื่อพร้อม
               (แสดงเฉพาะออเดอร์ของวันนี้เท่านั้น)
             </p>
 
-            {orders.length === 0 && (
-              <p className="text-ink/50">ยังไม่มีออเดอร์ใหม่</p>
+            <div className="mb-4 flex gap-1 rounded-2xl bg-forest/10 p-1">
+              <button
+                onClick={() => setOrdersView("new")}
+                className={`flex-1 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:text-sm ${
+                  ordersView === "new" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+                }`}
+              >
+                ออเดอร์ใหม่ ({orders.length})
+              </button>
+              <button
+                onClick={() => setOrdersView("accepted")}
+                className={`flex-1 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:text-sm ${
+                  ordersView === "accepted" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+                }`}
+              >
+                รับแล้ว ({acceptedOrders.length})
+              </button>
+            </div>
+
+            {ordersView === "new" && (
+              <>
+                {orders.length === 0 && (
+                  <p className="text-ink/50">ยังไม่มีออเดอร์ใหม่</p>
+                )}
+                <div className="space-y-3">
+                  {orders.map((o) => (
+                    <div key={o.id} className="rounded-xl border border-forest/15 bg-white p-4">
+                      <div className="mb-2 flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-ink">ออเดอร์ #{o.id}</p>
+                          <p className="text-sm text-ink/60">{sourceLabel(o)}</p>
+                          <p className="text-xs text-ink/40">{formatDateTime(o.created_at)}</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-2 space-y-1 border-t border-forest/10 pt-2 text-sm">
+                        {o.items.map((line: any, idx: number) => (
+                          <div key={idx}>
+                            <p className="text-ink">
+                              {line.qty} x {line.name}{" "}
+                              <span className="text-[#8B3A2B]">
+                                {(line.unitPrice * line.qty).toFixed(0)} บาท
+                              </span>
+                            </p>
+                            {line.options &&
+                              String(line.options)
+                                .split(",")
+                                .map((opt: string) => opt.trim())
+                                .filter(Boolean)
+                                .map((opt: string, i: number) => (
+                                  <p key={i} className="pl-4 text-xs text-ink/60">
+                                    + {opt}
+                                  </p>
+                                ))}
+                            {line.note && (
+                              <p className="pl-4 text-xs text-ink/60">+ {line.note}</p>
+                            )}
+                          </div>
+                        ))}
+                        <p className="pt-1 text-right font-semibold text-[#8B3A2B]">
+                          รวม {orderTotal(o).toFixed(0)} บาท
+                        </p>
+                      </div>
+
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => setPrintOrder(o)}
+                          className="flex-1 rounded-full bg-forest px-3 py-2 text-xs font-medium text-sand sm:text-sm"
+                        >
+                          🖨️ พิมพ์บิล
+                        </button>
+                        <button
+                          onClick={() => handleAccept(o.id)}
+                          className="flex-1 rounded-full bg-green-700 px-3 py-2 text-xs font-medium text-white sm:text-sm"
+                        >
+                          ✅ รับเงินแล้ว
+                        </button>
+                        <button
+                          onClick={() => handleCancel(o.id)}
+                          className="flex-1 rounded-full bg-red-700 px-3 py-2 text-xs font-medium text-white sm:text-sm"
+                        >
+                          ❌ ยกเลิก
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
 
-            <div className="space-y-3">
-              {orders.map((o) => (
-                <div
-                  key={o.id}
-                  className="rounded-xl border border-forest/15 bg-white p-4"
-                >
-                  <div className="mb-2 flex items-start justify-between">
-                    <div>
-                      <p className="font-semibold text-ink">ออเดอร์ #{o.id}</p>
-                      <p className="text-sm text-ink/60">{sourceLabel(o)}</p>
-                      <p className="text-xs text-ink/40">
-                        {formatDateTime(o.created_at)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-2 space-y-1 border-t border-forest/10 pt-2 text-sm">
-                    {o.items.map((line: any, idx: number) => (
-                      <div key={idx}>
-                        <p className="text-ink">
-                          {line.qty} x {line.name}{" "}
-                          <span className="text-[#8B3A2B]">
-                            {(line.unitPrice * line.qty).toFixed(0)} บาท
-                          </span>
-                        </p>
-                        {line.options &&
-                          String(line.options)
-                            .split(",")
-                            .map((opt: string) => opt.trim())
-                            .filter(Boolean)
-                            .map((opt: string, i: number) => (
-                              <p key={i} className="pl-4 text-xs text-ink/60">
-                                + {opt}
-                              </p>
-                            ))}
-                        {line.note && (
-                          <p className="pl-4 text-xs text-ink/60">+ {line.note}</p>
-                        )}
+            {ordersView === "accepted" && (
+              <>
+                {acceptedOrders.length === 0 && (
+                  <p className="text-ink/50">ยังไม่มีออเดอร์ที่รับเงินแล้ววันนี้</p>
+                )}
+                <div className="space-y-3">
+                  {acceptedOrders.map((o) => (
+                    <div key={o.id} className="rounded-xl border border-forest/15 bg-white p-4">
+                      <div className="mb-2 flex items-start justify-between">
+                        <div>
+                          <p className="font-semibold text-ink">ออเดอร์ #{o.id}</p>
+                          <p className="text-sm text-ink/60">{sourceLabel(o)}</p>
+                          <p className="text-xs text-ink/40">{formatDateTime(o.created_at)}</p>
+                        </div>
+                        <p className="font-semibold text-[#8B3A2B]">{orderTotal(o).toFixed(0)} บาท</p>
                       </div>
-                    ))}
-                    <p className="pt-1 text-right font-semibold text-[#8B3A2B]">
-                      รวม {orderTotal(o).toFixed(0)} บาท
-                    </p>
-                  </div>
-
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={() => setPrintOrder(o)}
-                      className="flex-1 rounded-full bg-forest px-3 py-2 text-xs font-medium text-sand sm:text-sm"
-                    >
-                      🖨️ พิมพ์บิล
-                    </button>
-                    <button
-                      onClick={() => handleAccept(o.id)}
-                      className="flex-1 rounded-full bg-green-700 px-3 py-2 text-xs font-medium text-white sm:text-sm"
-                    >
-                      ✅ รับออเดอร์
-                    </button>
-                    <button
-                      onClick={() => handleCancel(o.id)}
-                      className="flex-1 rounded-full bg-red-700 px-3 py-2 text-xs font-medium text-white sm:text-sm"
-                    >
-                      ❌ ยกเลิก
-                    </button>
-                  </div>
+                      <button
+                        onClick={() => handleUnaccept(o.id)}
+                        className="w-full rounded-full bg-red-700 px-3 py-2 text-xs font-medium text-white sm:text-sm"
+                      >
+                        ↩️ ยกเลิกการรับเงิน (คืนเป็นออเดอร์ใหม่)
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </>
         )}
 
@@ -355,6 +420,8 @@ export default function StaffPage() {
         {tab === "dashboard" && isOwner && <DashboardTab />}
         {tab === "test" && isOwner && <TestOrderTab />}
         {tab === "reconcile" && isOwner && <ReconcileTab />}
+          </div>
+        </div>
       </div>
 
       {printOrder && (
