@@ -19,15 +19,6 @@ function addDays(dateStr: string, days: number) {
   d.setDate(d.getDate() + days);
   return d.toISOString().slice(0, 10);
 }
-function timeOnly(iso: string) {
-  const d = new Date(iso);
-  return new Intl.DateTimeFormat("en-GB", {
-    timeZone: "Asia/Bangkok",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  }).format(d);
-}
 
 export default function ReconcileTab() {
   const [channel, setChannel] = useState<"grab" | "lineman">("grab");
@@ -35,12 +26,7 @@ export default function ReconcileTab() {
   const [to, setTo] = useState(todayStr());
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
   const [keyedTotal, setKeyedTotal] = useState(0);
-
-  // โหมด Grab: กรอกยอดที่ได้จริงทีละออเดอร์
-  const [perOrderNet, setPerOrderNet] = useState<Record<number, string>>({});
-  // โหมด LINE MAN: กรอกยอดรวมทั้งรอบ
   const [actualReceived, setActualReceived] = useState("");
-
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
@@ -49,9 +35,8 @@ export default function ReconcileTab() {
     setLoading(true);
     setMessage("");
     setOrders(null);
-    setPerOrderNet({});
     try {
-      const toExclusive = addDays(to, 1);
+      const toExclusive = addDays(to, 1); // รวมถึงวันสุดท้ายที่เลือกด้วย
       const res = await fetch(`/api/reconcile?channel=${channel}&from=${from}&to=${toExclusive}`);
       const data = await res.json();
       if (!res.ok) {
@@ -67,40 +52,7 @@ export default function ReconcileTab() {
     }
   }
 
-  async function submitGrab() {
-    if (!orders) return;
-    const entries = orders
-      .filter((o) => perOrderNet[o.id] !== undefined && perOrderNet[o.id] !== "")
-      .map((o) => ({ id: o.id, actualNet: Number(perOrderNet[o.id]) }));
-    if (entries.length === 0) {
-      alert("กรอกยอดที่ได้จริงอย่างน้อย 1 ออเดอร์ก่อนครับ");
-      return;
-    }
-    if (!confirm(`ยืนยันกระทบยอด ${entries.length} ออเดอร์ ใช่ไหม?`)) return;
-    setSubmitting(true);
-    setMessage("");
-    try {
-      const res = await fetch("/api/reconcile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "per_order", entries })
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setMessage("บันทึกไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
-        return;
-      }
-      setMessage(`กระทบยอดสำเร็จ ${data.ordersUpdated} ออเดอร์`);
-      setOrders(null);
-      setPerOrderNet({});
-    } catch {
-      setMessage("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  async function submitLineman() {
+  async function submitReconcile() {
     if (!actualReceived) {
       alert("กรอกยอดที่ได้รับจริงก่อนครับ");
       return;
@@ -114,7 +66,6 @@ export default function ReconcileTab() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode: "lump_sum",
           channel,
           from,
           to: toExclusive,
@@ -136,10 +87,13 @@ export default function ReconcileTab() {
     }
   }
 
+  const diff = orders ? keyedTotal - Number(actualReceived || 0) : 0;
+
   return (
     <div className="max-w-md pb-10">
       <p className="mb-4 text-sm text-ink/60">
-        Grab กรอกยอดที่ได้จริงทีละออเดอร์ (ตามที่แอป Grab โชว์) / LINE MAN กรอกเป็นยอดรวมต่อรอบที่โอนเข้ามา
+        เลือกช่องทาง เลือกช่วงวันที่ แล้วกรอกยอดรวมที่ได้รับจริงในช่วงนั้น
+        (Grab กรอกทุกวัน / LINE MAN กรอกตามรอบที่โอนเข้ามา)
       </p>
 
       <div className="mb-4 flex gap-2">
@@ -200,37 +154,7 @@ export default function ReconcileTab() {
         <p className="mb-4 text-sm text-ink/50">ไม่มีออเดอร์ที่ยังไม่กระทบยอดในช่วงนี้</p>
       )}
 
-      {orders && orders.length > 0 && channel === "grab" && (
-        <>
-          <p className="mb-2 text-sm text-ink/60">พบ {orders.length} ออเดอร์ — กรอกยอดที่ได้จริงต่อออเดอร์ (เว้นว่างได้ถ้ายังไม่รู้ยอด จะข้ามบิลนั้นไปก่อน)</p>
-          <div className="mb-4 space-y-2">
-            {orders.map((o) => (
-              <div key={o.id} className="flex items-center justify-between rounded-xl border border-forest/10 bg-white p-3">
-                <div>
-                  <p className="text-sm text-ink">#{o.id} {o.platform_order_no ? `· ${o.platform_order_no}` : ""}</p>
-                  <p className="text-xs text-ink/40">{timeOnly(o.created_at)} — คีย์ไว้ {Number(o.total_amount).toFixed(0)} บาท</p>
-                </div>
-                <input
-                  type="number"
-                  value={perOrderNet[o.id] ?? ""}
-                  onChange={(e) => setPerOrderNet((prev) => ({ ...prev, [o.id]: e.target.value }))}
-                  placeholder="ยอดจริง"
-                  className="w-24 rounded-lg border border-forest/15 px-2 py-1.5 text-right text-sm"
-                />
-              </div>
-            ))}
-          </div>
-          <button
-            onClick={submitGrab}
-            disabled={submitting}
-            className="w-full rounded-full bg-forest py-3 font-medium text-sand disabled:opacity-50"
-          >
-            {submitting ? "กำลังบันทึก..." : "บันทึกกระทบยอด"}
-          </button>
-        </>
-      )}
-
-      {orders && orders.length > 0 && channel === "lineman" && (
+      {orders && orders.length > 0 && (
         <>
           <div className="mb-4 rounded-xl border border-forest/10 bg-white p-4">
             <p className="mb-2 text-sm text-ink/60">พบ {orders.length} ออเดอร์ ยังไม่กระทบยอด</p>
@@ -240,7 +164,7 @@ export default function ReconcileTab() {
             </div>
           </div>
 
-          <label className="mb-2 block text-sm font-semibold text-ink">ยอดที่โอนเข้ามาจริงทั้งรอบ (บาท)</label>
+          <label className="mb-2 block text-sm font-semibold text-ink">ยอดที่ได้รับจริง (บาท)</label>
           <input
             type="number"
             value={actualReceived}
@@ -248,14 +172,16 @@ export default function ReconcileTab() {
             placeholder="เช่น 4200"
             className="mb-3 w-full rounded-lg border border-forest/15 px-3 py-2 text-sm"
           />
+
           {actualReceived && (
             <p className="mb-4 text-sm text-ink/60">
-              ส่วนต่าง (ค่าคอมมิชชั่นรวมโดยประมาณ ไม่แยกรายบิล): <span className="font-semibold text-red-600">{(keyedTotal - Number(actualReceived)).toFixed(0)} บาท</span>
+              ส่วนต่าง (ค่าคอมมิชชั่นรวมโดยประมาณ): <span className="font-semibold text-red-600">{diff.toFixed(0)} บาท</span>
             </p>
           )}
+
           <button
-            onClick={submitLineman}
-            disabled={submitting}
+            onClick={submitReconcile}
+            disabled={submitting || orders.length === 0}
             className="w-full rounded-full bg-forest py-3 font-medium text-sand disabled:opacity-50"
           >
             {submitting ? "กำลังบันทึก..." : "บันทึกกระทบยอด"}
