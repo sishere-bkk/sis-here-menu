@@ -7,6 +7,7 @@ import UploadImageTab from "../../components/UploadImageTab";
 import DashboardTab from "../../components/DashboardTab";
 import TestOrderTab from "../../components/TestOrderTab";
 import ManualOrderTab from "../../components/ManualOrderTab";
+import ReconcileTab from "../../components/ReconcileTab";
 
 // เห็นแท็บ Dashboard / ทดสอบ ได้เฉพาะชื่อนี้เท่านั้น
 const OWNER_NAME = "พี่ดี๋";
@@ -94,7 +95,7 @@ function resetZoomAfterPrint() {
 
 export default function StaffPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test">("orders");
+  const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test" | "reconcile">("orders");
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [printOrder, setPrintOrder] = useState<OrderRow | null>(null);
   const [staffName, setStaffName] = useState("");
@@ -254,6 +255,14 @@ export default function StaffPage() {
             >
               📷 อัปโหลดรูป
             </button>
+            <button
+              onClick={() => setTab("reconcile")}
+              className={`flex-1 rounded-xl px-2 py-2.5 text-center text-xs font-semibold transition-colors sm:text-sm ${
+                tab === "reconcile" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
+              }`}
+            >
+              💰 กระทบยอด
+            </button>
           </div>
         )}
 
@@ -345,6 +354,7 @@ export default function StaffPage() {
         {tab === "upload" && isOwner && <UploadImageTab />}
         {tab === "dashboard" && isOwner && <DashboardTab />}
         {tab === "test" && isOwner && <TestOrderTab />}
+        {tab === "reconcile" && isOwner && <ReconcileTab />}
       </div>
 
       {printOrder && (
