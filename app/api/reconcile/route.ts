@@ -8,16 +8,31 @@ function getAdmin() {
   );
 }
 
-// GET: คืนออเดอร์ของช่องทาง+ช่วงวันที่ที่ยังไม่กระทบยอด พร้อมยอดรวมที่คีย์ไว้
+// แปลงวันที่ปฏิทินแบบไทย (YYYY-MM-DD, รวมทั้ง from และ to) ให้เป็นช่วงเวลา UTC ที่ถูกต้อง
+// (เดิมเทียบ created_at กับสตริงวันที่ตรงๆ ซึ่งพลาดเรื่อง timezone กรุงเทพ +7 ชม.)
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+function bangkokRangeToUtc(fromDateStr: string, toDateStr: string) {
+  const startUtcMs = Date.parse(fromDateStr + "T00:00:00Z") - BANGKOK_OFFSET_MS;
+  const endUtcMs =
+    Date.parse(toDateStr + "T00:00:00Z") - BANGKOK_OFFSET_MS + 24 * 60 * 60 * 1000;
+  return {
+    startIso: new Date(startUtcMs).toISOString(),
+    endIso: new Date(endUtcMs).toISOString()
+  };
+}
+
+// GET: คืนออเดอร์ของช่องทาง+ช่วงวันที่ (ปฏิทินกรุงเทพ, รวมทั้ง from และ to) ที่ยังไม่กระทบยอด
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const channel = searchParams.get("channel"); // "grab" | "lineman"
-  const from = searchParams.get("from"); // YYYY-MM-DD
-  const to = searchParams.get("to"); // YYYY-MM-DD แบบ exclusive (front คำนวณ +1 วันมาให้แล้ว)
+  const from = searchParams.get("from"); // YYYY-MM-DD (รวมวันนี้)
+  const to = searchParams.get("to"); // YYYY-MM-DD (รวมวันนี้)
 
   if (!channel || !from || !to) {
     return NextResponse.json({ error: "missing channel/from/to" }, { status: 400 });
   }
+
+  const { startIso, endIso } = bangkokRangeToUtc(from, to);
 
   const admin = getAdmin();
   const { data, error } = await admin
@@ -26,8 +41,8 @@ export async function GET(request: NextRequest) {
     .eq("channel", channel)
     .eq("reconciled", false)
     .neq("status", "cancelled")
-    .gte("created_at", from)
-    .lt("created_at", to)
+    .gte("created_at", startIso)
+    .lt("created_at", endIso)
     .order("created_at", { ascending: true });
 
   if (error) {
@@ -39,7 +54,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({ orders: data, keyedTotal });
 }
 
-// POST: กรอกยอดรวมที่ได้รับจริงของช่วงที่เลือก (ใช้ทั้ง Grab และ LINE MAN เหมือนกัน)
+// POST: กรอกยอดรวมที่ได้รับจริงของช่วงที่เลือก (ปฏิทินกรุงเทพ, รวมทั้ง from และ to)
 // -> เฉลี่ย fee ลงแต่ละออเดอร์ตามสัดส่วนยอดที่คีย์ไว้ แล้ว mark reconciled = true ทั้งหมด
 export async function POST(request: NextRequest) {
   const body = await request.json();
@@ -54,6 +69,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
   }
 
+  const { startIso, endIso } = bangkokRangeToUtc(from, to);
+
   const admin = getAdmin();
   const { data: orders, error } = await admin
     .from("orders")
@@ -61,8 +78,8 @@ export async function POST(request: NextRequest) {
     .eq("channel", channel)
     .eq("reconciled", false)
     .neq("status", "cancelled")
-    .gte("created_at", from)
-    .lt("created_at", to);
+    .gte("created_at", startIso)
+    .lt("created_at", endIso);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
