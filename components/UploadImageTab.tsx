@@ -9,8 +9,12 @@ type Item = {
   hasPhoto: boolean;
 };
 
+type MenuImageField = "image_url" | "delivery_image_url";
+
 export default function UploadImageTab() {
   const [target, setTarget] = useState<"menu" | "stock">("menu");
+  // เฉพาะตอน target === "menu": เลือกว่าจะอัปโหลดรูปให้เมนูออนไลน์ หรือรูปสำหรับหน้าคีย์ออเดอร์ Grab/LINE MAN (แยกกันคนละรูป)
+  const [menuImageField, setMenuImageField] = useState<MenuImageField>("image_url");
   const [items, setItems] = useState<Item[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
@@ -23,13 +27,24 @@ export default function UploadImageTab() {
     setMessage("");
 
     if (target === "menu") {
+      const hasPhotoColumn = menuImageField; // "image_url" | "delivery_image_url"
       supabase
         .from("menu")
-        .select("id,name,image_url")
+        .select(`id,name,delivery_name,${hasPhotoColumn}`)
         .order("name")
         .then(({ data }) => {
           if (data) {
-            setItems(data.map((d) => ({ id: d.id, label: d.name, hasPhoto: !!d.image_url })));
+            setItems(
+              data.map((d: any) => ({
+                id: d.id,
+                // ถ้ากำลังอัปรูปฝั่ง Grab/LINE MAN ใช้ชื่อ delivery_name แสดงถ้ามี จะได้แยกแยะง่ายขึ้น
+                label:
+                  menuImageField === "delivery_image_url"
+                    ? d.delivery_name || d.name
+                    : d.name,
+                hasPhoto: !!d[hasPhotoColumn]
+              }))
+            );
           }
         });
     } else {
@@ -47,7 +62,7 @@ export default function UploadImageTab() {
           }
         });
     }
-  }, [target]);
+  }, [target, menuImageField]);
 
   function resizeImage(file: File, maxWidth = 900): Promise<Blob> {
     return new Promise((resolve, reject) => {
@@ -92,6 +107,10 @@ export default function UploadImageTab() {
 
       const endpoint = target === "menu" ? "/api/upload-menu-image" : "/api/upload-stock-image";
       formData.append(target === "menu" ? "menuId" : "stockId", selectedId);
+      // บอก API ว่าจะอัปเดตคอลัมน์ไหน (เฉพาะกรณีเมนู) — ไม่ส่ง = ใช้ image_url ปกติ (เมนูออนไลน์)
+      if (target === "menu") {
+        formData.append("imageField", menuImageField);
+      }
 
       const res = await fetch(endpoint, { method: "POST", body: formData });
       if (!res.ok) throw new Error("upload failed");
@@ -107,10 +126,12 @@ export default function UploadImageTab() {
 
   async function handleDelete() {
     if (!selectedId) return;
+    const params = new URLSearchParams({ id: selectedId });
+    if (target === "menu") params.set("imageField", menuImageField);
     const endpoint =
       target === "menu"
-        ? `/api/upload-menu-image?id=${selectedId}`
-        : `/api/upload-stock-image?id=${selectedId}`;
+        ? `/api/upload-menu-image?${params.toString()}`
+        : `/api/upload-stock-image?${params.toString()}`;
 
     const res = await fetch(endpoint, { method: "DELETE" });
     if (res.ok) {
@@ -144,6 +165,33 @@ export default function UploadImageTab() {
           สต๊อก
         </button>
       </div>
+
+      {target === "menu" && (
+        <div className="mb-4">
+          <label className="mb-2 block text-sm text-ink/60">อัปโหลดรูปให้</label>
+          <div className="inline-flex rounded-2xl bg-forest/10 p-1">
+            <button
+              onClick={() => setMenuImageField("image_url")}
+              className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
+                menuImageField === "image_url" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+              }`}
+            >
+              เมนูออนไลน์
+            </button>
+            <button
+              onClick={() => setMenuImageField("delivery_image_url")}
+              className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
+                menuImageField === "delivery_image_url" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
+              }`}
+            >
+              Grab / LINE MAN
+            </button>
+          </div>
+          <p className="mt-1 text-xs text-ink/40">
+            รูป 2 ฝั่งนี้แยกกันคนละไฟล์ ไม่ใช้ร่วมกัน
+          </p>
+        </div>
+      )}
 
       <label className="mb-2 block text-sm text-ink/60">เลือกรายการ</label>
       <select
