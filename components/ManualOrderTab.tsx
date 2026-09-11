@@ -301,6 +301,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
   function confirmDiscount() {
     setAppliedDiscount(Number(discountInput) || 0);
+    setPickerOpen(false);
   }
 
   async function submitOrder() {
@@ -440,7 +441,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           className="flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors border"
           style={
             !needsUtensils
-              ? { backgroundColor: "#DC2626", color: "#ffffff", borderColor: "#DC2626" }
+              ? { backgroundColor: "#D62828", color: "#ffffff", borderColor: "#D62828" }
               : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
           }
         >
