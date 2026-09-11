@@ -355,7 +355,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setChannel("grab")}
-          className="flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors border"
+          className="flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors border"
           style={
             channel === "grab"
               ? { backgroundColor: "#0F6B3D", color: "#ffffff", borderColor: "#0F6B3D" }
@@ -366,7 +366,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         </button>
         <button
           onClick={() => setChannel("lineman")}
-          className="flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors border"
+          className="flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors border"
           style={
             channel === "lineman"
               ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
@@ -427,7 +427,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => setNeedsUtensils(true)}
-          className="flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors border"
+          className="flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors border"
           style={
             needsUtensils
               ? { backgroundColor: "#0D9488", color: "#ffffff", borderColor: "#0D9488" }
@@ -438,7 +438,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         </button>
         <button
           onClick={() => setNeedsUtensils(false)}
-          className="flex-1 rounded-full px-4 py-2.5 text-sm font-medium transition-colors border"
+          className="flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors border"
           style={
             !needsUtensils
               ? { backgroundColor: "#D62828", color: "#ffffff", borderColor: "#D62828" }
