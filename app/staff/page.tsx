@@ -24,6 +24,8 @@ type OrderRow = {
   items: any[];
   status: string;
   created_at: string;
+  discount: number | null;
+  total_amount: number | null;
 };
 
 function formatDateTime(iso: string) {
@@ -96,6 +98,7 @@ function resetZoomAfterPrint() {
 export default function StaffPage() {
   const router = useRouter();
   const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test" | "reconcile">("orders");
+  const [menuOpen, setMenuOpen] = useState(false);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [acceptedOrders, setAcceptedOrders] = useState<OrderRow[]>([]);
   const [ordersView, setOrdersView] = useState<"new" | "accepted">("new");
@@ -200,9 +203,20 @@ export default function StaffPage() {
     <div>
       <div className="no-print p-6">
         <div className="mb-1 flex items-center justify-between">
-          <h1 className="text-2xl font-semibold text-forestDark">
-            หน้าพนักงาน
-          </h1>
+          <div className="flex items-center gap-3">
+            {isOwner && (
+              <button
+                onClick={() => setMenuOpen(true)}
+                aria-label="เมนู"
+                className="flex h-9 w-9 flex-none items-center justify-center rounded-full border border-forest/20 text-lg text-forestDark"
+              >
+                ☰
+              </button>
+            )}
+            <h1 className="text-2xl font-semibold text-forestDark">
+              หน้าพนักงาน
+            </h1>
+          </div>
           <div className="flex items-center gap-3">
             {staffName && (
               <span className="text-sm text-ink/60">สวัสดี {staffName}</span>
@@ -216,11 +230,10 @@ export default function StaffPage() {
           </div>
         </div>
 
-        <div className="mb-2 flex gap-1 overflow-x-auto rounded-2xl bg-forest/10 p-1">
+        <div className="mb-2 flex gap-1 rounded-2xl bg-forest/10 p-1">
           <button
             onClick={() => setTab("orders")}
-            style={{ whiteSpace: "nowrap" }}
-            className={`flex-none w-24 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+            className={`flex-1 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:py-2.5 sm:text-sm ${
               tab === "orders" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
@@ -228,8 +241,7 @@ export default function StaffPage() {
           </button>
           <button
             onClick={() => setTab("manualorder")}
-            style={{ whiteSpace: "nowrap" }}
-            className={`flex-none w-24 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+            className={`flex-1 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:py-2.5 sm:text-sm ${
               tab === "manualorder" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
@@ -237,8 +249,7 @@ export default function StaffPage() {
           </button>
           <button
             onClick={() => setTab("stock")}
-            style={{ whiteSpace: "nowrap" }}
-            className={`flex-none w-24 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:w-36 sm:py-2.5 sm:text-sm ${
+            className={`flex-1 rounded-xl px-3 py-2 text-center text-xs font-semibold transition-colors sm:py-2.5 sm:text-sm ${
               tab === "stock" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
             }`}
           >
@@ -246,45 +257,53 @@ export default function StaffPage() {
           </button>
         </div>
 
-        <div className="flex flex-col gap-4 sm:flex-row">
-          {isOwner && (
-            <div className="flex flex-none gap-1 overflow-x-auto rounded-2xl bg-[#8B3A2B]/10 p-1 sm:w-44 sm:flex-col sm:overflow-visible">
-              <button
-                onClick={() => setTab("dashboard")}
-                className={`flex-none whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
-                  tab === "dashboard" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-                }`}
-              >
-                📊 Dashboard
-              </button>
-              <button
-                onClick={() => setTab("reconcile")}
-                className={`flex-none whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
-                  tab === "reconcile" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-                }`}
-              >
-                💰 กระทบยอด
-              </button>
-              <button
-                onClick={() => setTab("upload")}
-                className={`flex-none whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
-                  tab === "upload" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-                }`}
-              >
-                📷 อัปโหลดรูป
-              </button>
-              <button
-                onClick={() => setTab("test")}
-                className={`flex-none whitespace-nowrap rounded-xl px-3 py-2.5 text-left text-xs font-semibold transition-colors sm:text-sm ${
-                  tab === "test" ? "bg-[#8B3A2B] text-sand shadow-sm" : "text-[#8B3A2B]/70"
-                }`}
-              >
-                🧪 ทดสอบ
-              </button>
+        {isOwner && menuOpen && (
+          <div className="fixed inset-0 z-40 flex items-end bg-ink/40" onClick={() => setMenuOpen(false)}>
+            <div
+              className="w-full rounded-t-3xl bg-white p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-forestDark">เมนูเจ้าของร้าน</h3>
+                <button onClick={() => setMenuOpen(false)} className="text-sm text-ink/50">ปิด</button>
+              </div>
+              <div className="space-y-2">
+                <button
+                  onClick={() => { setTab("dashboard"); setMenuOpen(false); }}
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-semibold ${
+                    tab === "dashboard" ? "bg-[#8B3A2B] text-sand" : "bg-[#8B3A2B]/10 text-[#8B3A2B]"
+                  }`}
+                >
+                  📊 Dashboard
+                </button>
+                <button
+                  onClick={() => { setTab("reconcile"); setMenuOpen(false); }}
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-semibold ${
+                    tab === "reconcile" ? "bg-[#8B3A2B] text-sand" : "bg-[#8B3A2B]/10 text-[#8B3A2B]"
+                  }`}
+                >
+                  💰 กระทบยอด
+                </button>
+                <button
+                  onClick={() => { setTab("upload"); setMenuOpen(false); }}
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-semibold ${
+                    tab === "upload" ? "bg-[#8B3A2B] text-sand" : "bg-[#8B3A2B]/10 text-[#8B3A2B]"
+                  }`}
+                >
+                  📷 อัปโหลดรูป
+                </button>
+                <button
+                  onClick={() => { setTab("test"); setMenuOpen(false); }}
+                  className={`w-full rounded-xl px-4 py-3 text-left text-sm font-semibold ${
+                    tab === "test" ? "bg-[#8B3A2B] text-sand" : "bg-[#8B3A2B]/10 text-[#8B3A2B]"
+                  }`}
+                >
+                  🧪 ทดสอบ
+                </button>
+              </div>
             </div>
-          )}
-
-          <div className="min-w-0 flex-1">
+          </div>
+        )}
 
         {tab === "orders" && (
           <>
@@ -353,8 +372,20 @@ export default function StaffPage() {
                             )}
                           </div>
                         ))}
-                        <p className="pt-1 text-right font-semibold text-[#8B3A2B]">
-                          รวม {orderTotal(o).toFixed(0)} บาท
+                        <p className="pt-1 text-right">
+                          {o.discount != null && o.discount > 0 && (
+                            <>
+                              <span className="block text-xs text-ink/50">
+                                ยอดรวมรายการ {orderTotal(o).toFixed(0)} บาท
+                              </span>
+                              <span className="block text-xs text-red-600">
+                                ส่วนลด −{o.discount.toFixed(0)} บาท
+                              </span>
+                            </>
+                          )}
+                          <span className="font-semibold text-[#8B3A2B]">
+                            รวม {(o.total_amount ?? orderTotal(o)).toFixed(0)} บาท
+                          </span>
                         </p>
                       </div>
 
@@ -398,7 +429,7 @@ export default function StaffPage() {
                           <p className="text-sm text-ink/60">{sourceLabel(o)}</p>
                           <p className="text-xs text-ink/40">{formatDateTime(o.created_at)}</p>
                         </div>
-                        <p className="font-semibold text-[#8B3A2B]">{orderTotal(o).toFixed(0)} บาท</p>
+                        <p className="font-semibold text-[#8B3A2B]">{(o.total_amount ?? orderTotal(o)).toFixed(0)} บาท</p>
                       </div>
                       <button
                         onClick={() => handleUnaccept(o.id)}
@@ -420,8 +451,6 @@ export default function StaffPage() {
         {tab === "dashboard" && isOwner && <DashboardTab />}
         {tab === "test" && isOwner && <TestOrderTab />}
         {tab === "reconcile" && isOwner && <ReconcileTab />}
-          </div>
-        </div>
       </div>
 
       {printOrder && (
