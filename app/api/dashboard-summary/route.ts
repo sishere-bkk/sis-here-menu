@@ -43,7 +43,8 @@ export async function GET() {
     return NextResponse.json({ error: ordersError.message }, { status: 500 });
   }
 
-  const validOrders = (orders ?? []).filter((o) => o.status !== "cancelled");
+  // นับเฉพาะออเดอร์ที่ "รับเงินแล้ว" เท่านั้น (ไม่นับออเดอร์ใหม่ที่ยังไม่รับเงิน และที่ยกเลิกไปแล้ว)
+  const validOrders = (orders ?? []).filter((o) => o.status === "accepted");
   const orderIds = validOrders.map((o) => o.id);
 
   const { data: orderItems } = orderIds.length
