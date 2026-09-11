@@ -147,10 +147,10 @@ export default function UploadImageTab() {
 
   return (
     <div className="max-w-md">
-      <div className="mb-4 inline-flex rounded-2xl bg-forest/10 p-1">
+      <div className="mb-4 flex w-full gap-2 rounded-2xl bg-forest/10 p-1">
         <button
           onClick={() => setTarget("menu")}
-          className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+          className={`flex-1 rounded-xl px-6 py-3.5 text-base font-bold transition-colors ${
             target === "menu" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
           }`}
         >
@@ -158,7 +158,7 @@ export default function UploadImageTab() {
         </button>
         <button
           onClick={() => setTarget("stock")}
-          className={`rounded-xl px-6 py-2.5 text-sm font-semibold transition-colors ${
+          className={`flex-1 rounded-xl px-6 py-3.5 text-base font-bold transition-colors ${
             target === "stock" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
           }`}
         >
