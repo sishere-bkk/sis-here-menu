@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 type OrderRow = {
   id: number;
@@ -10,12 +10,22 @@ type OrderRow = {
   status: string;
 };
 
+type ThaiChuayThaiEntry = {
+  id: string;
+  entry_date: string;
+  amount: number;
+  note: string | null;
+};
+
 function todayStr() {
   const d = new Date();
   return d.toISOString().slice(0, 10);
 }
+
 export default function ReconcileTab() {
-  const [channel, setChannel] = useState<"grab" | "lineman">("grab");
+  const [channel, setChannel] = useState<"grab" | "lineman" | "thaichuaythai">("grab");
+
+  // --- Grab / LINE MAN ปกติ ---
   const [from, setFrom] = useState(todayStr());
   const [to, setTo] = useState(todayStr());
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
@@ -24,6 +34,21 @@ export default function ReconcileTab() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+
+  // --- ไทยช่วยไทย (สมุดจด) ---
+  const [tctEntries, setTctEntries] = useState<ThaiChuayThaiEntry[] | null>(null);
+  const [tctTotal, setTctTotal] = useState(0);
+  const [tctDate, setTctDate] = useState(todayStr());
+  const [tctAmount, setTctAmount] = useState("");
+  const [tctNote, setTctNote] = useState("");
+  const [tctLoading, setTctLoading] = useState(false);
+  const [tctSubmitting, setTctSubmitting] = useState(false);
+  const [tctMessage, setTctMessage] = useState("");
+
+  useEffect(() => {
+    if (channel === "thaichuaythai") loadThaiChuayThai();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channel]);
 
   async function loadOrders() {
     setLoading(true);
@@ -79,19 +104,65 @@ export default function ReconcileTab() {
     }
   }
 
+  async function loadThaiChuayThai() {
+    setTctLoading(true);
+    setTctMessage("");
+    try {
+      const res = await fetch("/api/thai-chuay-thai");
+      const data = await res.json();
+      if (!res.ok) {
+        setTctMessage("โหลดไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
+        return;
+      }
+      setTctEntries(data.entries);
+      setTctTotal(data.total);
+    } catch {
+      setTctMessage("โหลดไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setTctLoading(false);
+    }
+  }
+
+  async function submitThaiChuayThai() {
+    if (!tctAmount) {
+      alert("กรอกจำนวนเงินก่อนครับ");
+      return;
+    }
+    setTctSubmitting(true);
+    setTctMessage("");
+    try {
+      const res = await fetch("/api/thai-chuay-thai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          entryDate: tctDate,
+          amount: Number(tctAmount),
+          note: tctNote || null
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTctMessage("บันทึกไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
+        return;
+      }
+      setTctAmount("");
+      setTctNote("");
+      loadThaiChuayThai();
+    } catch {
+      setTctMessage("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setTctSubmitting(false);
+    }
+  }
+
   const diff = orders ? keyedTotal - Number(actualReceived || 0) : 0;
 
   return (
     <div className="max-w-md pb-10">
-      <p className="mb-4 text-sm text-ink/60">
-        เลือกช่องทาง เลือกช่วงวันที่ แล้วกรอกยอดรวมที่ได้รับจริงในช่วงนั้น
-        (Grab กรอกทุกวัน / LINE MAN กรอกตามรอบที่โอนเข้ามา)
-      </p>
-
       <div className="mb-4 flex gap-2">
         <button
           onClick={() => { setChannel("grab"); setOrders(null); setMessage(""); }}
-          className="flex-1 rounded-full px-4 py-2.5 text-sm font-semibold border"
+          className="flex-1 rounded-full px-3 py-2 text-sm font-semibold border"
           style={
             channel === "grab"
               ? { backgroundColor: "#0F6B3D", color: "#ffffff", borderColor: "#0F6B3D" }
@@ -102,86 +173,177 @@ export default function ReconcileTab() {
         </button>
         <button
           onClick={() => { setChannel("lineman"); setOrders(null); setMessage(""); }}
-          className="flex-1 rounded-full px-4 py-2.5 text-sm font-semibold border"
+          className="flex-1 rounded-full px-3 py-2 text-sm font-semibold border"
           style={
             channel === "lineman"
-              ? { backgroundColor: "#8BD84A", color: "#153A1E", borderColor: "#8BD84A" }
+              ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
               : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
           }
         >
           LINE MAN
         </button>
+        <button
+          onClick={() => { setChannel("thaichuaythai"); }}
+          className="flex-1 rounded-full px-3 py-2 text-sm font-semibold border"
+          style={
+            channel === "thaichuaythai"
+              ? { backgroundColor: "#8B3A2B", color: "#ffffff", borderColor: "#8B3A2B" }
+              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
+          }
+        >
+          ไทยช่วยไทย
+        </button>
       </div>
 
-      <div className="mb-4 flex gap-2">
-        <div className="flex-1">
-          <label className="mb-1 block text-xs text-ink/50">ตั้งแต่วันที่</label>
-          <input
-            type="date"
-            value={from}
-            onChange={(e) => { setFrom(e.target.value); setOrders(null); }}
-            className="w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="mb-1 block text-xs text-ink/50">ถึงวันที่</label>
-          <input
-            type="date"
-            value={to}
-            onChange={(e) => { setTo(e.target.value); setOrders(null); }}
-            className="w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
-          />
-        </div>
-      </div>
-
-      <button
-        onClick={loadOrders}
-        disabled={loading}
-        className="mb-4 w-full rounded-full bg-forest py-2.5 text-sm font-medium text-sand disabled:opacity-50"
-      >
-        {loading ? "กำลังโหลด..." : "ดึงยอดที่ยังไม่กระทบยอด"}
-      </button>
-
-      {orders && orders.length === 0 && (
-        <p className="mb-4 text-sm text-ink/50">ไม่มีออเดอร์ที่ยังไม่กระทบยอดในช่วงนี้</p>
-      )}
-
-      {orders && orders.length > 0 && (
+      {channel !== "thaichuaythai" && (
         <>
-          <div className="mb-4 rounded-xl border border-forest/10 bg-white p-4">
-            <p className="mb-2 text-sm text-ink/60">พบ {orders.length} ออเดอร์ ยังไม่กระทบยอด</p>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-ink/60">ยอดที่คีย์ไว้ทั้งหมด</span>
-              <span className="text-lg font-semibold text-forestDark">{keyedTotal.toFixed(0)} บาท</span>
+          <p className="mb-4 text-sm text-ink/60">
+            เลือกช่วงวันที่ แล้วกรอกยอดรวมที่ได้รับจริงในช่วงนั้น
+            (Grab กรอกทุกวัน / LINE MAN กรอกตามรอบที่โอนเข้ามา)
+          </p>
+
+          <div className="mb-4 flex gap-2">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs text-ink/50">ตั้งแต่วันที่</label>
+              <input
+                type="date"
+                value={from}
+                onChange={(e) => { setFrom(e.target.value); setOrders(null); }}
+                className="w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-xs text-ink/50">ถึงวันที่</label>
+              <input
+                type="date"
+                value={to}
+                onChange={(e) => { setTo(e.target.value); setOrders(null); }}
+                className="w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+              />
             </div>
           </div>
 
-          <label className="mb-2 block text-sm font-semibold text-ink">ยอดที่ได้รับจริง (บาท)</label>
-          <input
-            type="number"
-            value={actualReceived}
-            onChange={(e) => setActualReceived(e.target.value)}
-            placeholder="เช่น 4200"
-            className="mb-3 w-full rounded-lg border border-forest/15 px-3 py-2 text-sm"
-          />
+          <button
+            onClick={loadOrders}
+            disabled={loading}
+            className="mb-4 w-full rounded-full bg-forest py-2.5 text-sm font-medium text-sand disabled:opacity-50"
+          >
+            {loading ? "กำลังโหลด..." : "ดึงยอดที่ยังไม่กระทบยอด"}
+          </button>
 
-          {actualReceived && (
-            <p className="mb-4 text-sm text-ink/60">
-              ส่วนต่าง (ค่าคอมมิชชั่นรวมโดยประมาณ): <span className="font-semibold text-red-600">{diff.toFixed(0)} บาท</span>
-            </p>
+          {orders && orders.length === 0 && (
+            <p className="mb-4 text-sm text-ink/50">ไม่มีออเดอร์ที่ยังไม่กระทบยอดในช่วงนี้</p>
           )}
 
-          <button
-            onClick={submitReconcile}
-            disabled={submitting || orders.length === 0}
-            className="w-full rounded-full bg-forest py-3 font-medium text-sand disabled:opacity-50"
-          >
-            {submitting ? "กำลังบันทึก..." : "บันทึกกระทบยอด"}
-          </button>
+          {orders && orders.length > 0 && (
+            <>
+              <div className="mb-4 rounded-xl border border-forest/10 bg-white p-4">
+                <p className="mb-2 text-sm text-ink/60">พบ {orders.length} ออเดอร์ ยังไม่กระทบยอด</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-ink/60">ยอดที่คีย์ไว้ทั้งหมด</span>
+                  <span className="text-lg font-semibold text-forestDark">{keyedTotal.toFixed(0)} บาท</span>
+                </div>
+              </div>
+
+              <label className="mb-2 block text-sm font-semibold text-ink">ยอดที่ได้รับจริง (บาท)</label>
+              <input
+                type="number"
+                value={actualReceived}
+                onChange={(e) => setActualReceived(e.target.value)}
+                placeholder="เช่น 4200"
+                className="mb-3 w-full rounded-lg border border-forest/15 px-3 py-2 text-sm"
+              />
+
+              {actualReceived && (
+                <p className="mb-4 text-sm text-ink/60">
+                  ส่วนต่าง (ค่าคอมมิชชั่นรวมโดยประมาณ): <span className="font-semibold text-red-600">{diff.toFixed(0)} บาท</span>
+                </p>
+              )}
+
+              <button
+                onClick={submitReconcile}
+                disabled={submitting || orders.length === 0}
+                className="w-full rounded-full bg-forest py-3 font-medium text-sand disabled:opacity-50"
+              >
+                {submitting ? "กำลังบันทึก..." : "บันทึกกระทบยอด"}
+              </button>
+            </>
+          )}
+
+          {message && <p className="mt-4 text-sm text-ink/70">{message}</p>}
         </>
       )}
 
-      {message && <p className="mt-4 text-sm text-ink/70">{message}</p>}
+      {channel === "thaichuaythai" && (
+        <>
+          <p className="mb-4 text-sm text-ink/60">
+            แอป LINE MAN ไม่บอกยอดของโครงการนี้แยกให้ ก็เลยเป็นแค่สมุดจดว่าวันไหนได้เงินโครงการมาเท่าไหร่
+            ไม่เชื่อมกับออเดอร์ไหนเป็นพิเศษ
+          </p>
+
+          <div className="mb-4 rounded-xl border border-forest/10 bg-white p-4">
+            <label className="mb-2 block text-xs text-ink/50">วันที่ได้รับเงินโอน</label>
+            <input
+              type="date"
+              value={tctDate}
+              onChange={(e) => setTctDate(e.target.value)}
+              className="mb-3 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+            />
+            <label className="mb-2 block text-xs text-ink/50">จำนวนเงิน (บาท)</label>
+            <input
+              type="number"
+              value={tctAmount}
+              onChange={(e) => setTctAmount(e.target.value)}
+              placeholder="เช่น 1500"
+              className="mb-3 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+            />
+            <label className="mb-2 block text-xs text-ink/50">โน้ต (ไม่บังคับ)</label>
+            <input
+              type="text"
+              value={tctNote}
+              onChange={(e) => setTctNote(e.target.value)}
+              placeholder="เช่น ยอดขาย 5-7 ก.ย."
+              className="mb-3 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+            />
+            <button
+              onClick={submitThaiChuayThai}
+              disabled={tctSubmitting}
+              className="w-full rounded-full bg-forest py-2.5 text-sm font-medium text-sand disabled:opacity-50"
+            >
+              {tctSubmitting ? "กำลังบันทึก..." : "บันทึก"}
+            </button>
+          </div>
+
+          {tctMessage && <p className="mb-3 text-sm text-red-600">{tctMessage}</p>}
+
+          <div className="mb-3 rounded-xl border border-forest/10 bg-white p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-ink/60">ยอดสะสมทั้งหมดที่เคยได้รับ</span>
+              <span className="text-lg font-semibold text-forestDark">{tctTotal.toFixed(0)} บาท</span>
+            </div>
+          </div>
+
+          {tctLoading && <p className="text-sm text-ink/50">กำลังโหลด...</p>}
+
+          {tctEntries && tctEntries.length === 0 && (
+            <p className="text-sm text-ink/50">ยังไม่มีบันทึก</p>
+          )}
+
+          {tctEntries && tctEntries.length > 0 && (
+            <div className="space-y-2">
+              {tctEntries.map((e) => (
+                <div key={e.id} className="flex items-center justify-between rounded-xl border border-forest/10 bg-white p-3">
+                  <div>
+                    <p className="text-sm text-ink">{e.entry_date}</p>
+                    {e.note && <p className="text-xs text-ink/50">{e.note}</p>}
+                  </div>
+                  <p className="font-semibold text-[#8B3A2B]">{Number(e.amount).toFixed(0)} บาท</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
