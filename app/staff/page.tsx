@@ -213,7 +213,7 @@ export default function StaffPage() {
                 ☰
               </button>
             )}
-            <h1 className="text-2xl font-semibold text-forestDark">
+            <h1 className="text-lg font-semibold text-forestDark sm:text-2xl">
               หน้าพนักงาน
             </h1>
           </div>
