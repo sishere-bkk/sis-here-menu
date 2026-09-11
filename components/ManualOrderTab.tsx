@@ -418,9 +418,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       {/* ข้อ 2/3: ปุ่มเพิ่มรายการจากเมนู อยู่ติดใต้รายการก่อน แล้วค่อยเป็นช้อนส้อม */}
       <button
         onClick={() => { setPickerMode("menu"); setPickerOpen(true); }}
-        className="mb-4 flex w-full items-center justify-center gap-2 rounded-full bg-forest py-3.5 text-base font-semibold text-sand shadow-md active:scale-[0.99] transition-transform"
+        className="mb-4 flex w-full items-center justify-center gap-2 rounded-full bg-forest py-5 text-lg font-bold text-sand shadow-md active:scale-[0.99] transition-transform"
       >
-        <span className="text-lg leading-none">＋</span> เพิ่มรายการจากเมนู
+        <span className="text-xl leading-none">＋</span> เพิ่มรายการจากเมนู
       </button>
 
       <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
