@@ -328,7 +328,7 @@ export default function StaffPage() {
                   ordersView === "accepted" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
                 }`}
               >
-                รับแล้ว ({acceptedOrders.length})
+                รับเงินแล้ว ({acceptedOrders.length})
               </button>
             </div>
 
@@ -368,7 +368,9 @@ export default function StaffPage() {
                                   </p>
                                 ))}
                             {line.note && (
-                              <p className="pl-4 text-xs text-ink/60">+ {line.note}</p>
+                              <p className="ml-4 mt-1 rounded-md border border-dashed border-forest/30 px-2 py-1 text-xs text-ink/60">
+                                {line.note}
+                              </p>
                             )}
                           </div>
                         ))}
@@ -495,7 +497,17 @@ export default function StaffPage() {
                         </p>
                       ))}
                   {line.note && (
-                    <p style={{ fontSize: 16, margin: 0, paddingLeft: 10 }}>+ {line.note}</p>
+                    <p
+                      style={{
+                        fontSize: 16,
+                        margin: "2px 0 0 10px",
+                        padding: "2px 6px",
+                        border: "1px dashed #999",
+                        display: "inline-block"
+                      }}
+                    >
+                      {line.note}
+                    </p>
                   )}
                 </div>
               ))}
