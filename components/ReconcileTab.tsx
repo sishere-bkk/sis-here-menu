@@ -226,7 +226,7 @@ export default function ReconcileTab() {
           <button
             onClick={loadOrders}
             disabled={loading}
-            className="mb-4 w-full rounded-full bg-forest py-2.5 text-sm font-medium text-sand disabled:opacity-50"
+            className="mb-4 w-full rounded-full bg-forest py-3.5 text-base font-semibold text-sand shadow-md disabled:opacity-50"
           >
             {loading ? "กำลังโหลด..." : "ดึงยอดที่ยังไม่กระทบยอด"}
           </button>
@@ -287,7 +287,7 @@ export default function ReconcileTab() {
               type="date"
               value={tctDate}
               onChange={(e) => setTctDate(e.target.value)}
-              className="mb-3 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+              className="mb-3 w-full rounded-lg border border-forest/15 bg-white px-3 py-2 text-sm"
             />
             <label className="mb-2 block text-xs text-ink/50">จำนวนเงิน (บาท)</label>
             <input
@@ -308,7 +308,7 @@ export default function ReconcileTab() {
             <button
               onClick={submitThaiChuayThai}
               disabled={tctSubmitting}
-              className="w-full rounded-full bg-forest py-2.5 text-sm font-medium text-sand disabled:opacity-50"
+              className="w-full rounded-full bg-forest py-3.5 text-base font-semibold text-sand shadow-md disabled:opacity-50"
             >
               {tctSubmitting ? "กำลังบันทึก..." : "บันทึก"}
             </button>
