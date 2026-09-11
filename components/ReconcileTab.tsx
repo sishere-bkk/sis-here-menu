@@ -187,7 +187,7 @@ export default function ReconcileTab() {
           className="flex-1 rounded-full px-3 py-2 text-sm font-semibold border"
           style={
             channel === "thaichuaythai"
-              ? { backgroundColor: "#8B3A2B", color: "#ffffff", borderColor: "#8B3A2B" }
+              ? { backgroundColor: "#2563EB", color: "#ffffff", borderColor: "#2563EB" }
               : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
           }
         >
