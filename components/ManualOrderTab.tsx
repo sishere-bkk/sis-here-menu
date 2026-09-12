@@ -352,26 +352,36 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
   return (
     <div className="pb-10">
       {/* ข้อ 11: สีคนละโทนของแต่ละแอป — Grab เขียวเข้ม / LINE MAN เขียวสว่าง */}
-      <div className="mb-4 flex gap-2">
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <button
           onClick={() => setChannel("grab")}
-          className="flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors border"
-          style={
-            channel === "grab"
+          style={{
+            flex: 1,
+            borderRadius: 9999,
+            padding: "16px 18px",
+            fontSize: 16,
+            fontWeight: 700,
+            border: "1px solid",
+            ...(channel === "grab"
               ? { backgroundColor: "#0F6B3D", color: "#ffffff", borderColor: "#0F6B3D" }
-              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
-          }
+              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+          }}
         >
           Grab
         </button>
         <button
           onClick={() => setChannel("lineman")}
-          className="flex-1 rounded-full px-4 py-2 text-sm font-semibold transition-colors border"
-          style={
-            channel === "lineman"
+          style={{
+            flex: 1,
+            borderRadius: 9999,
+            padding: "16px 18px",
+            fontSize: 16,
+            fontWeight: 700,
+            border: "1px solid",
+            ...(channel === "lineman"
               ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
-              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
-          }
+              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+          }}
         >
           LINE MAN
         </button>
@@ -418,32 +428,57 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       {/* ข้อ 2/3: ปุ่มเพิ่มรายการจากเมนู อยู่ติดใต้รายการก่อน แล้วค่อยเป็นช้อนส้อม */}
       <button
         onClick={() => { setPickerMode("menu"); setPickerOpen(true); }}
-        className="mb-4 flex w-full items-center justify-center gap-2 rounded-full bg-forest py-5 text-lg font-bold text-sand shadow-md active:scale-[0.99] transition-transform"
+        style={{
+          display: "flex",
+          width: "100%",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: 8,
+          marginBottom: 16,
+          borderRadius: 9999,
+          backgroundColor: "#E8792F",
+          padding: "20px 24px",
+          fontSize: 19,
+          fontWeight: 800,
+          color: "#FCEFC0",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+          border: "none"
+        }}
       >
-        <span className="text-xl leading-none">＋</span> เพิ่มรายการจากเมนู
+        <span style={{ fontSize: 22, lineHeight: 1 }}>＋</span> เพิ่มรายการจากเมนู
       </button>
 
       <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
-      <div className="mb-4 flex gap-2">
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <button
           onClick={() => setNeedsUtensils(true)}
-          className="flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors border"
-          style={
-            needsUtensils
+          style={{
+            flex: 1,
+            borderRadius: 9999,
+            padding: "16px 18px",
+            fontSize: 16,
+            fontWeight: 700,
+            border: "1px solid",
+            ...(needsUtensils
               ? { backgroundColor: "#0D9488", color: "#ffffff", borderColor: "#0D9488" }
-              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
-          }
+              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+          }}
         >
           รับช้อนส้อม
         </button>
         <button
           onClick={() => setNeedsUtensils(false)}
-          className="flex-1 rounded-full px-4 py-2 text-sm font-medium transition-colors border"
-          style={
-            !needsUtensils
+          style={{
+            flex: 1,
+            borderRadius: 9999,
+            padding: "16px 18px",
+            fontSize: 16,
+            fontWeight: 700,
+            border: "1px solid",
+            ...(!needsUtensils
               ? { backgroundColor: "#D62828", color: "#ffffff", borderColor: "#D62828" }
-              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
-          }
+              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+          }}
         >
           ไม่รับช้อนส้อม
         </button>
@@ -467,7 +502,17 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
       <button
         disabled={submitting}
         onClick={submitOrder}
-        className="w-full rounded-full bg-forest py-3 font-medium text-sand disabled:opacity-50"
+        style={{
+          width: "100%",
+          borderRadius: 9999,
+          backgroundColor: "#E8792F",
+          padding: "18px 24px",
+          fontSize: 18,
+          fontWeight: 700,
+          color: "#FCEFC0",
+          border: "none",
+          opacity: submitting ? 0.5 : 1
+        }}
       >
         {submitting ? "กำลังบันทึก..." : "บันทึกออเดอร์"}
       </button>
@@ -553,7 +598,16 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                     />
                     <button
                       onClick={confirmDiscount}
-                      className="w-full rounded-full bg-forest py-2 text-sm text-sand"
+                      style={{
+                        width: "100%",
+                        borderRadius: 9999,
+                        backgroundColor: "#E8792F",
+                        padding: "16px 18px",
+                        fontSize: 16,
+                        fontWeight: 700,
+                        color: "#FCEFC0",
+                        border: "none"
+                      }}
                     >
                       ยืนยันส่วนลด
                     </button>
@@ -666,7 +720,17 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
             <div className="border-t border-forest/10 p-4">
               <button
                 onClick={confirmOptions}
-                className="w-full rounded-full bg-forest py-3 font-medium text-sand shadow-md"
+                style={{
+                  width: "100%",
+                  borderRadius: 9999,
+                  backgroundColor: "#E8792F",
+                  padding: "18px 24px",
+                  fontSize: 18,
+                  fontWeight: 700,
+                  color: "#FCEFC0",
+                  border: "none",
+                  boxShadow: "0 4px 10px rgba(0,0,0,0.15)"
+                }}
               >
                 ยืนยัน
               </button>
