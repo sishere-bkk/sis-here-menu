@@ -163,7 +163,7 @@ export default function ReconcileTab() {
         <button
           onClick={() => { setChannel("grab"); setOrders(null); setMessage(""); }}
           style={{
-            flex: 1, borderRadius: 9999, padding: "14px 10px", fontSize: 15, fontWeight: 700, border: "1px solid",
+            flex: 1, borderRadius: 9999, padding: "10px 8px", fontSize: 14, fontWeight: 600, border: "1px solid",
             ...(channel === "grab"
               ? { backgroundColor: "#0F6B3D", color: "#ffffff", borderColor: "#0F6B3D" }
               : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
@@ -174,7 +174,7 @@ export default function ReconcileTab() {
         <button
           onClick={() => { setChannel("lineman"); setOrders(null); setMessage(""); }}
           style={{
-            flex: 1, borderRadius: 9999, padding: "14px 10px", fontSize: 15, fontWeight: 700, border: "1px solid",
+            flex: 1, borderRadius: 9999, padding: "10px 8px", fontSize: 14, fontWeight: 600, border: "1px solid",
             ...(channel === "lineman"
               ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
               : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
@@ -185,7 +185,7 @@ export default function ReconcileTab() {
         <button
           onClick={() => { setChannel("thaichuaythai"); }}
           style={{
-            flex: 1, borderRadius: 9999, padding: "14px 10px", fontSize: 15, fontWeight: 700, border: "1px solid",
+            flex: 1, borderRadius: 9999, padding: "10px 8px", fontSize: 14, fontWeight: 600, border: "1px solid",
             ...(channel === "thaichuaythai"
               ? { backgroundColor: "#2563EB", color: "#ffffff", borderColor: "#2563EB" }
               : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
@@ -202,23 +202,29 @@ export default function ReconcileTab() {
             (Grab กรอกทุกวัน / LINE MAN กรอกตามรอบที่โอนเข้ามา)
           </p>
 
-          <div className="mb-4 flex gap-2">
-            <div className="flex-1">
-              <label className="mb-1 block text-xs text-ink/50">ตั้งแต่วันที่</label>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <div style={{ flex: 1 }}>
+              <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>ตั้งแต่วันที่</label>
               <input
                 type="date"
                 value={from}
                 onChange={(e) => { setFrom(e.target.value); setOrders(null); }}
-                className="w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+                style={{
+                  width: "100%", boxSizing: "border-box", borderRadius: 8,
+                  border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
+                }}
               />
             </div>
-            <div className="flex-1">
-              <label className="mb-1 block text-xs text-ink/50">ถึงวันที่</label>
+            <div style={{ flex: 1 }}>
+              <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>ถึงวันที่</label>
               <input
                 type="date"
                 value={to}
                 onChange={(e) => { setTo(e.target.value); setOrders(null); }}
-                className="w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+                style={{
+                  width: "100%", boxSizing: "border-box", borderRadius: 8,
+                  border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
+                }}
               />
             </div>
           </div>
@@ -228,7 +234,7 @@ export default function ReconcileTab() {
             disabled={loading}
             style={{
               width: "100%", marginBottom: 16, borderRadius: 9999, backgroundColor: "#E8792F",
-              padding: "18px 24px", fontSize: 17, fontWeight: 700, color: "#FCEFC0", border: "none",
+              padding: "14px 20px", fontSize: 16, fontWeight: 700, color: "#FCEFC0", border: "none",
               boxShadow: "0 4px 10px rgba(0,0,0,0.15)", opacity: loading ? 0.5 : 1
             }}
           >
@@ -269,7 +275,7 @@ export default function ReconcileTab() {
                 disabled={submitting || orders.length === 0}
                 style={{
                   width: "100%", borderRadius: 9999, backgroundColor: "#E8792F",
-                  padding: "18px 24px", fontSize: 17, fontWeight: 700, color: "#FCEFC0", border: "none",
+                  padding: "14px 20px", fontSize: 16, fontWeight: 700, color: "#FCEFC0", border: "none",
                   opacity: (submitting || orders.length === 0) ? 0.5 : 1
                 }}
               >
@@ -289,36 +295,45 @@ export default function ReconcileTab() {
             ไม่เชื่อมกับออเดอร์ไหนเป็นพิเศษ
           </p>
 
-          <div className="mb-4 rounded-xl border border-forest/10 bg-white p-4">
-            <label className="mb-2 block text-xs text-ink/50">วันที่ได้รับเงินโอน</label>
+          <div style={{ marginBottom: 16, borderRadius: 12, border: "1px solid #E8792F1A", backgroundColor: "#ffffff", padding: 16 }}>
+            <label style={{ marginBottom: 8, display: "block", fontSize: 12, color: "#3A2A1880" }}>วันที่ได้รับเงินโอน</label>
             <input
               type="date"
               value={tctDate}
               onChange={(e) => setTctDate(e.target.value)}
-              className="mb-3 w-full rounded-lg border border-forest/15 bg-white px-3 py-2 text-sm"
+              style={{
+                marginBottom: 12, width: "100%", boxSizing: "border-box", borderRadius: 8,
+                border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
+              }}
             />
-            <label className="mb-2 block text-xs text-ink/50">จำนวนเงิน (บาท)</label>
+            <label style={{ marginBottom: 8, display: "block", fontSize: 12, color: "#3A2A1880" }}>จำนวนเงิน (บาท)</label>
             <input
               type="number"
               value={tctAmount}
               onChange={(e) => setTctAmount(e.target.value)}
               placeholder="เช่น 1500"
-              className="mb-3 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+              style={{
+                marginBottom: 12, width: "100%", boxSizing: "border-box", borderRadius: 8,
+                border: "1px solid #E8792F26", padding: "10px 12px", fontSize: 14
+              }}
             />
-            <label className="mb-2 block text-xs text-ink/50">โน้ต (ไม่บังคับ)</label>
+            <label style={{ marginBottom: 8, display: "block", fontSize: 12, color: "#3A2A1880" }}>โน้ต (ไม่บังคับ)</label>
             <input
               type="text"
               value={tctNote}
               onChange={(e) => setTctNote(e.target.value)}
               placeholder="เช่น ยอดขาย 5-7 ก.ย."
-              className="mb-3 w-full rounded-lg border border-forest/15 px-2 py-1.5 text-sm"
+              style={{
+                marginBottom: 12, width: "100%", boxSizing: "border-box", borderRadius: 8,
+                border: "1px solid #E8792F26", padding: "10px 12px", fontSize: 14
+              }}
             />
             <button
               onClick={submitThaiChuayThai}
               disabled={tctSubmitting}
               style={{
                 width: "100%", borderRadius: 9999, backgroundColor: "#E8792F",
-                padding: "18px 24px", fontSize: 17, fontWeight: 700, color: "#FCEFC0", border: "none",
+                padding: "14px 20px", fontSize: 16, fontWeight: 700, color: "#FCEFC0", border: "none",
                 boxShadow: "0 4px 10px rgba(0,0,0,0.15)", opacity: tctSubmitting ? 0.5 : 1
               }}
             >
