@@ -159,37 +159,37 @@ export default function ReconcileTab() {
 
   return (
     <div className="max-w-md pb-10">
-      <div className="mb-4 flex gap-2">
+      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <button
           onClick={() => { setChannel("grab"); setOrders(null); setMessage(""); }}
-          className="flex-1 rounded-full px-3 py-2 text-sm font-semibold border"
-          style={
-            channel === "grab"
+          style={{
+            flex: 1, borderRadius: 9999, padding: "14px 10px", fontSize: 15, fontWeight: 700, border: "1px solid",
+            ...(channel === "grab"
               ? { backgroundColor: "#0F6B3D", color: "#ffffff", borderColor: "#0F6B3D" }
-              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
-          }
+              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+          }}
         >
           Grab
         </button>
         <button
           onClick={() => { setChannel("lineman"); setOrders(null); setMessage(""); }}
-          className="flex-1 rounded-full px-3 py-2 text-sm font-semibold border"
-          style={
-            channel === "lineman"
+          style={{
+            flex: 1, borderRadius: 9999, padding: "14px 10px", fontSize: 15, fontWeight: 700, border: "1px solid",
+            ...(channel === "lineman"
               ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
-              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
-          }
+              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+          }}
         >
           LINE MAN
         </button>
         <button
           onClick={() => { setChannel("thaichuaythai"); }}
-          className="flex-1 rounded-full px-3 py-2 text-sm font-semibold border"
-          style={
-            channel === "thaichuaythai"
+          style={{
+            flex: 1, borderRadius: 9999, padding: "14px 10px", fontSize: 15, fontWeight: 700, border: "1px solid",
+            ...(channel === "thaichuaythai"
               ? { backgroundColor: "#2563EB", color: "#ffffff", borderColor: "#2563EB" }
-              : { backgroundColor: "#ffffff", color: "#3A2A1899", borderColor: "#E8792F26" }
-          }
+              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+          }}
         >
           ไทยช่วยไทย
         </button>
@@ -226,7 +226,11 @@ export default function ReconcileTab() {
           <button
             onClick={loadOrders}
             disabled={loading}
-            className="mb-4 w-full rounded-full bg-forest py-3.5 text-base font-semibold text-sand shadow-md disabled:opacity-50"
+            style={{
+              width: "100%", marginBottom: 16, borderRadius: 9999, backgroundColor: "#E8792F",
+              padding: "18px 24px", fontSize: 17, fontWeight: 700, color: "#FCEFC0", border: "none",
+              boxShadow: "0 4px 10px rgba(0,0,0,0.15)", opacity: loading ? 0.5 : 1
+            }}
           >
             {loading ? "กำลังโหลด..." : "ดึงยอดที่ยังไม่กระทบยอด"}
           </button>
@@ -263,7 +267,11 @@ export default function ReconcileTab() {
               <button
                 onClick={submitReconcile}
                 disabled={submitting || orders.length === 0}
-                className="w-full rounded-full bg-forest py-3 font-medium text-sand disabled:opacity-50"
+                style={{
+                  width: "100%", borderRadius: 9999, backgroundColor: "#E8792F",
+                  padding: "18px 24px", fontSize: 17, fontWeight: 700, color: "#FCEFC0", border: "none",
+                  opacity: (submitting || orders.length === 0) ? 0.5 : 1
+                }}
               >
                 {submitting ? "กำลังบันทึก..." : "บันทึกกระทบยอด"}
               </button>
@@ -308,7 +316,11 @@ export default function ReconcileTab() {
             <button
               onClick={submitThaiChuayThai}
               disabled={tctSubmitting}
-              className="w-full rounded-full bg-forest py-3.5 text-base font-semibold text-sand shadow-md disabled:opacity-50"
+              style={{
+                width: "100%", borderRadius: 9999, backgroundColor: "#E8792F",
+                padding: "18px 24px", fontSize: 17, fontWeight: 700, color: "#FCEFC0", border: "none",
+                boxShadow: "0 4px 10px rgba(0,0,0,0.15)", opacity: tctSubmitting ? 0.5 : 1
+              }}
             >
               {tctSubmitting ? "กำลังบันทึก..." : "บันทึก"}
             </button>
