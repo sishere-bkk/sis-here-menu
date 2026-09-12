@@ -237,6 +237,7 @@ export default function StockTab() {
   ];
 
   const lowCount = items.filter((it) => it.status === "ใกล้หมด" || it.status === "หมด").length;
+  const uncheckedCount = items.filter((it) => !isCheckedToday(it.last_checked_at)).length;
 
   const visibleItems = items.filter((it) => {
     if (activeCategory !== "ทั้งหมด" && it.category !== activeCategory) return false;
@@ -251,17 +252,27 @@ export default function StockTab() {
 
   return (
     <div>
-      {/* แถบกรอง: ยังไม่เช็ค / ใกล้หมด */}
-      <div className="mb-3 flex gap-4 border-b border-forest/10">
+      {/* แถบกรอง: ยังไม่เช็ค / ใกล้หมด — ข้อ 5: เว้นระยะห่าง+ขยายพื้นที่กดให้ง่ายขึ้น */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, borderBottom: "1px solid #E8792F1A" }}>
         {FILTERS.map((f) => (
           <button
             key={f}
             onClick={() => setActiveFilter(f)}
-            className={`border-b-2 pb-2 text-sm font-medium ${
-              activeFilter === f ? "border-forest text-forestDark" : "border-transparent text-ink/40"
-            }`}
+            style={{
+              borderBottom: activeFilter === f ? "3px solid #E8792F" : "3px solid transparent",
+              padding: "14px 16px",
+              fontSize: 16,
+              fontWeight: 700,
+              color: activeFilter === f ? "#B85A1F" : "#3A2A1866",
+              background: "none",
+              border: "none",
+              borderBottomWidth: 3,
+              borderBottomStyle: "solid",
+              borderBottomColor: activeFilter === f ? "#E8792F" : "transparent"
+            }}
           >
             {f}
+            {f === "ยังไม่เช็ค" && uncheckedCount > 0 ? ` (${uncheckedCount})` : ""}
             {f === "ใกล้หมด" && lowCount > 0 ? ` (${lowCount})` : ""}
           </button>
         ))}
@@ -278,21 +289,27 @@ export default function StockTab() {
         </button>
       )}
 
-      {/* แถบหมวดหมู่ */}
+      {/* แถบหมวดหมู่ — ข้อ 7: ปุ่มใหญ่ขึ้น กดง่ายขึ้น */}
       <div
-        className="mb-4"
-        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}
+        style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}
       >
         {categories.map((cat) => (
           <button
             key={cat}
             onClick={() => setActiveCategory(cat)}
-            style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-            className={`rounded-full border px-2 py-2.5 text-sm font-medium ${
-              activeCategory === cat
-                ? "border-forest bg-forest text-sand"
-                : "border-forest/20 text-forestDark"
-            }`}
+            style={{
+              whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              borderRadius: 9999,
+              border: "1px solid",
+              padding: "16px 12px",
+              fontSize: 16,
+              fontWeight: 700,
+              ...(activeCategory === cat
+                ? { borderColor: "#E8792F", backgroundColor: "#E8792F", color: "#FCEFC0" }
+                : { borderColor: "#E8792F33", backgroundColor: "#ffffff", color: "#B85A1F" })
+            }}
           >
             {cat}
           </button>
