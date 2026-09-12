@@ -147,20 +147,24 @@ export default function UploadImageTab() {
 
   return (
     <div className="max-w-md">
-      <div className="mb-4 flex w-full gap-2 rounded-2xl bg-forest/10 p-1">
+      <div style={{ display: "flex", width: "100%", gap: 8, borderRadius: 20, backgroundColor: "#E8792F1A", padding: 4, marginBottom: 16 }}>
         <button
           onClick={() => setTarget("menu")}
-          className={`flex-1 rounded-xl px-6 py-3.5 text-base font-bold transition-colors ${
-            target === "menu" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
-          }`}
+          style={{
+            flex: 1, borderRadius: 14, padding: "18px 20px", fontSize: 17, fontWeight: 800, border: "none",
+            backgroundColor: target === "menu" ? "#E8792F" : "transparent",
+            color: target === "menu" ? "#FCEFC0" : "#B85A1F99"
+          }}
         >
           เมนู
         </button>
         <button
           onClick={() => setTarget("stock")}
-          className={`flex-1 rounded-xl px-6 py-3.5 text-base font-bold transition-colors ${
-            target === "stock" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
-          }`}
+          style={{
+            flex: 1, borderRadius: 14, padding: "18px 20px", fontSize: 17, fontWeight: 800, border: "none",
+            backgroundColor: target === "stock" ? "#E8792F" : "transparent",
+            color: target === "stock" ? "#FCEFC0" : "#B85A1F99"
+          }}
         >
           สต๊อก
         </button>
