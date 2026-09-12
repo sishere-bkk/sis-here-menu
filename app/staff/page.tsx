@@ -112,15 +112,41 @@ export default function StaffPage() {
   const [staffName, setStaffName] = useState("");
   const isOwner = staffName === OWNER_NAME;
 
-  // ---- ส่วนใหม่: auto print + เสียงเตือนวนซ้ำ + ป๊อปอัพ สำหรับออเดอร์เมนูออนไลน์ ----
-  // เก็บ id ออเดอร์เมนูออนไลน์ที่ "ยังไม่ถูกจัดการ" (ยังไม่กดพิมพ์/รับ/ยกเลิก) -> ใช้คุมทั้งเสียงและป้ายแจ้งเตือน
+  // ---- ส่วนใหม่: เสียงเตือนวนซ้ำ + ป๊อปอัพ สำหรับออเดอร์เมนูออนไลน์ ----
+  // เก็บ id ออเดอร์เมนูออนไลน์ที่ "ยังไม่ถูกจัดการ" (ยังไม่กดพิมพ์/รับเงิน/ยกเลิก) -> ใช้คุมทั้งเสียงและป้ายแจ้งเตือน
   const [alertOrderIds, setAlertOrderIds] = useState<Set<number>>(new Set());
-  // คิวรอพิมพ์อัตโนมัติ (เผื่อมีหลายออเดอร์เข้ามาพร้อมกัน จะพิมพ์ทีละใบ)
-  const [printQueue, setPrintQueue] = useState<OrderRow[]>([]);
   // จำ id ออเดอร์ที่เคยเห็นแล้ว เพื่อรู้ว่าอันไหน "ใหม่จริง" (null = ยังไม่โหลดครั้งแรก)
   const seenOrderIdsRef = useRef<Set<number> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const soundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // มือถือ/เบราว์เซอร์บางตัวไม่ยอมเล่นเสียงเองจนกว่าจะมีคนแตะหน้าจอก่อน 1 ครั้ง
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+  // กันจอดับเองอัตโนมัติระหว่างเปิดหน้านี้ค้างไว้ (ช่วยให้เสียงเตือนมีโอกาสทำงานต่อเนื่องมากขึ้น)
+  const wakeLockRef = useRef<any>(null);
+
+  async function requestWakeLock() {
+    try {
+      const nav = navigator as any;
+      if (nav.wakeLock) {
+        wakeLockRef.current = await nav.wakeLock.request("screen");
+      }
+    } catch (err) {
+      // เครื่อง/เบราว์เซอร์บางรุ่นไม่รองรับ ไม่ทำให้หน้าอื่นพัง
+    }
+  }
+
+  useEffect(() => {
+    requestWakeLock();
+    // ถ้าจอถูกปิดแล้วเปิดกลับมา (เช่น สลับแอปแล้วกลับมา) ต้องขอกันจอดับใหม่อีกครั้ง
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") requestWakeLock();
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      wakeLockRef.current?.release?.().catch(() => {});
+    };
+  }, []);
 
   useEffect(() => {
     setStaffName(getCookie("staff_display_name"));
@@ -159,10 +185,6 @@ export default function StaffPage() {
               freshIds.forEach((id) => next.add(id));
               return next;
             });
-            setPrintQueue((prev) => [
-              ...prev,
-              ...onlineOrders.filter((o) => freshIds.includes(o.id))
-            ]);
           }
           seenOrderIdsRef.current = currentIds;
         }
@@ -179,16 +201,6 @@ export default function StaffPage() {
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // ดึงออเดอร์ถัดไปจากคิวมาพิมพ์อัตโนมัติ ทีละใบ (รอใบก่อนหน้าพิมพ์เสร็จก่อน)
-  useEffect(() => {
-    if (printOrder) return;
-    if (printQueue.length === 0) return;
-    const next = printQueue[0];
-    setPrintQueue((prev) => prev.slice(1));
-    setPrintOrder(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [printQueue, printOrder]);
 
   useEffect(() => {
     if (!printOrder) return;
@@ -209,6 +221,7 @@ export default function StaffPage() {
   }, [printOrder]);
 
   // เอา id ออกจากรายการที่กำลังแจ้งเตือนอยู่ (ถือว่าพนักงาน "รับรู้" ออเดอร์นี้แล้ว)
+  // เรียกตอนกดพิมพ์บิล / กดรับเงินแล้ว / กดยกเลิกออเดอร์ — ทั้ง 3 ปุ่มนี้หยุดเสียงได้หมด
   function clearAlert(id: number) {
     setAlertOrderIds((prev) => {
       if (!prev.has(id)) return prev;
@@ -218,8 +231,37 @@ export default function StaffPage() {
     });
   }
 
-  // เล่นเสียงเตือนสั้นๆ หนึ่งครั้ง ด้วย Web Audio API (ไม่ต้องมีไฟล์เสียงเพิ่ม)
+  // เล่นเสียง "ติ๊ง" หนึ่งครั้ง (โทนเดียว) ด้วย Web Audio API (ไม่ต้องมีไฟล์เสียงเพิ่ม)
+  function playTone(freq: number, startAt: number, ctx: AudioContext) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime + startAt);
+    gain.gain.exponentialRampToValueAtTime(0.6, ctx.currentTime + startAt + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + startAt + 0.28);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(ctx.currentTime + startAt);
+    osc.stop(ctx.currentTime + startAt + 0.3);
+  }
+
+  // เล่นเสียงเตือนแบบ "ติ๊ง-ติ๊ง" 2 จังหวะ ให้สะดุดหูกว่าโทนเดียว
   function playBeep() {
+    try {
+      const ctx = audioCtxRef.current;
+      if (!ctx) return;
+      if (ctx.state === "suspended") ctx.resume();
+      playTone(880, 0, ctx);
+      playTone(1040, 0.15, ctx);
+    } catch (err) {
+      // ไม่ทำให้หน้าอื่นพัง ถ้าเล่นเสียงไม่ได้ด้วยเหตุผลอะไรก็ตาม
+    }
+  }
+
+  // ต้องให้พนักงานแตะปุ่มนี้ก่อน 1 ครั้ง (กฎของ iPhone/iPad และเบราว์เซอร์ส่วนใหญ่
+  // ที่ไม่ยอมให้เว็บเล่นเสียงเองโดยไม่มีคนแตะจอก่อน) แตะครั้งเดียวใช้ได้ทั้งวันจนกว่าจะปิดหน้านี้
+  function unlockAudio() {
     try {
       if (!audioCtxRef.current) {
         const AC = window.AudioContext || (window as any).webkitAudioContext;
@@ -227,24 +269,18 @@ export default function StaffPage() {
       }
       const ctx = audioCtxRef.current;
       if (ctx.state === "suspended") ctx.resume();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = "sine";
-      osc.frequency.value = 880;
-      gain.gain.setValueAtTime(0.35, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.45);
+      playTone(880, 0, ctx);
+      setAudioUnlocked(true);
     } catch (err) {
-      // เบราว์เซอร์บางตัวอาจบล็อกเสียงถ้าหน้ายังไม่เคยถูกแตะเลย ไม่ทำให้พังหน้าอื่น
+      // ถ้าเล่นไม่ได้จริงๆ ก็ปล่อยผ่าน อย่างน้อยยังมีป๊อปอัพช่วยแจ้งเตือนอยู่
+      setAudioUnlocked(true);
     }
   }
 
   // คุมเสียงเตือนแบบวนซ้ำ: ดังทุก 3 วิ ตราบใดที่ยังมีออเดอร์ค้างแจ้งเตือนอยู่อย่างน้อย 1 รายการ
+  // (เล่นได้ก็ต่อเมื่อพนักงานแตะปุ่ม "เปิดเสียงแจ้งเตือน" ไปแล้วอย่างน้อย 1 ครั้ง)
   useEffect(() => {
-    if (alertOrderIds.size > 0) {
+    if (alertOrderIds.size > 0 && audioUnlocked) {
       if (!soundIntervalRef.current) {
         playBeep();
         soundIntervalRef.current = setInterval(playBeep, 3000);
@@ -259,7 +295,7 @@ export default function StaffPage() {
         soundIntervalRef.current = null;
       }
     };
-  }, [alertOrderIds]);
+  }, [alertOrderIds, audioUnlocked]);
   // ---- จบส่วนใหม่ ----
 
   async function markPrinted(id: number) {
@@ -312,12 +348,48 @@ export default function StaffPage() {
 
   return (
     <div>
-      {alertOrderIds.size > 0 && (
+      {!audioUnlocked && (
         <div
           className="no-print"
           style={{
             position: "fixed",
             top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            background: "#F2B705",
+            color: "#3A2A18",
+            textAlign: "center",
+            padding: "8px 16px",
+            fontWeight: 700,
+            fontSize: 13
+          }}
+        >
+          🔕 ยังไม่ได้เปิดเสียงแจ้งเตือน —{" "}
+          <button
+            onClick={unlockAudio}
+            style={{
+              background: "#3A2A18",
+              color: "#F2B705",
+              border: "none",
+              borderRadius: 999,
+              padding: "4px 14px",
+              fontWeight: 700,
+              fontSize: 13,
+              marginLeft: 6
+            }}
+          >
+            แตะตรงนี้เพื่อเปิดเสียง
+          </button>
+        </div>
+      )}
+
+      {alertOrderIds.size > 0 && (
+        <div
+          className="no-print"
+          style={{
+            position: "fixed",
+            top: audioUnlocked ? 0 : 34,
             left: 0,
             right: 0,
             zIndex: 50,
@@ -329,13 +401,16 @@ export default function StaffPage() {
             fontSize: 14
           }}
         >
-          🔔 มีออเดอร์เมนูออนไลน์ใหม่ {alertOrderIds.size} รายการ — กำลังแจ้งเตือน (พิมพ์บิลหรือกดรับเงินเพื่อหยุดเสียง)
+          🔔 มีออเดอร์เมนูออนไลน์ใหม่ {alertOrderIds.size} รายการ — กำลังแจ้งเตือน (กดพิมพ์บิล / รับเงินแล้ว / ยกเลิก เพื่อหยุดเสียง)
         </div>
       )}
 
       <div
         className="no-print p-6"
-        style={{ paddingTop: alertOrderIds.size > 0 ? 56 : undefined }}
+        style={{
+          paddingTop:
+            (audioUnlocked ? 0 : 40) + (alertOrderIds.size > 0 ? 48 : 0) || undefined
+        }}
       >
         <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -444,8 +519,9 @@ export default function StaffPage() {
           <>
             <p className="mb-4 text-sm text-ink/60">
               เปิดหน้านี้ค้างไว้บนคอมหรือแท็บเล็ตที่ต่อกับเครื่องพิมพ์ในร้าน
-              รายการจะอัปเดตเองทุก 5 วินาที ออเดอร์เมนูออนไลน์ที่เข้ามาใหม่จะเด้งพิมพ์ให้เองพร้อมเสียงเตือน
-              (แสดงเฉพาะออเดอร์ของวันนี้เท่านั้น)
+              รายการจะอัปเดตเองทุก 5 วินาที ออเดอร์เมนูออนไลน์ที่เข้ามาใหม่จะมีเสียงเตือนดังวนไปเรื่อยๆ
+              จนกว่าจะกดพิมพ์บิล / รับเงินแล้ว / ยกเลิก (แสดงเฉพาะออเดอร์ของวันนี้เท่านั้น) —
+              อย่าลืมแตะปุ่ม "เปิดเสียง" ด้านบนตอนเปิดหน้านี้ครั้งแรกของวันด้วยนะ
             </p>
 
             <div className="mb-4 flex gap-1 rounded-2xl bg-forest/10 p-1">
