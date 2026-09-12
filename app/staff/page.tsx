@@ -349,39 +349,30 @@ export default function StaffPage() {
   return (
     <div>
       {!audioUnlocked && (
-        <div
+        <button
+          onClick={unlockAudio}
+          aria-label="เปิดเสียงแจ้งเตือน"
           className="no-print"
           style={{
             position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
+            bottom: 20,
+            right: 16,
             zIndex: 50,
+            width: 52,
+            height: 52,
+            borderRadius: "50%",
             background: "#F2B705",
             color: "#3A2A18",
-            textAlign: "center",
-            padding: "8px 16px",
-            fontWeight: 700,
-            fontSize: 13
+            border: "2px solid #3A2A18",
+            fontSize: 22,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)"
           }}
         >
-          🔕 ยังไม่ได้เปิดเสียงแจ้งเตือน —{" "}
-          <button
-            onClick={unlockAudio}
-            style={{
-              background: "#3A2A18",
-              color: "#F2B705",
-              border: "none",
-              borderRadius: 999,
-              padding: "4px 14px",
-              fontWeight: 700,
-              fontSize: 13,
-              marginLeft: 6
-            }}
-          >
-            แตะตรงนี้เพื่อเปิดเสียง
-          </button>
-        </div>
+          🔕
+        </button>
       )}
 
       {alertOrderIds.size > 0 && (
@@ -389,7 +380,7 @@ export default function StaffPage() {
           className="no-print"
           style={{
             position: "fixed",
-            top: audioUnlocked ? 0 : 34,
+            top: 0,
             left: 0,
             right: 0,
             zIndex: 50,
@@ -407,10 +398,7 @@ export default function StaffPage() {
 
       <div
         className="no-print p-6"
-        style={{
-          paddingTop:
-            (audioUnlocked ? 0 : 40) + (alertOrderIds.size > 0 ? 48 : 0) || undefined
-        }}
+        style={{ paddingTop: alertOrderIds.size > 0 ? 48 : undefined }}
       >
         <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -521,7 +509,7 @@ export default function StaffPage() {
               เปิดหน้านี้ค้างไว้บนคอมหรือแท็บเล็ตที่ต่อกับเครื่องพิมพ์ในร้าน
               รายการจะอัปเดตเองทุก 5 วินาที ออเดอร์เมนูออนไลน์ที่เข้ามาใหม่จะมีเสียงเตือนดังวนไปเรื่อยๆ
               จนกว่าจะกดพิมพ์บิล / รับเงินแล้ว / ยกเลิก (แสดงเฉพาะออเดอร์ของวันนี้เท่านั้น) —
-              อย่าลืมแตะปุ่ม "เปิดเสียง" ด้านบนตอนเปิดหน้านี้ครั้งแรกของวันด้วยนะ
+              อย่าลืมแตะปุ่ม 🔕 มุมล่างขวาจอตอนเปิดหน้านี้ครั้งแรกของวันด้วยนะ เพื่อเปิดเสียงแจ้งเตือน
             </p>
 
             <div className="mb-4 flex gap-1 rounded-2xl bg-forest/10 p-1">
