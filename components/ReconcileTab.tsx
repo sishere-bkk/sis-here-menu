@@ -198,17 +198,22 @@ export default function ReconcileTab() {
       {channel !== "thaichuaythai" && (
         <>
           <p className="mb-4 text-sm text-ink/60">
-            เลือกช่วงวันที่ แล้วกรอกยอดรวมที่ได้รับจริงในช่วงนั้น
-            (Grab กรอกทุกวัน / LINE MAN กรอกตามรอบที่โอนเข้ามา)
+            {channel === "grab"
+              ? "เลือกวันที่ แล้วกรอกยอดรวมที่ได้รับจริงของวันนั้น"
+              : "เลือกช่วงวันที่ แล้วกรอกยอดรวมที่ได้รับจริงในช่วงนั้น (ตามรอบที่โอนเข้ามา)"}
           </p>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>ตั้งแต่วันที่</label>
+          {channel === "grab" ? (
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>วันที่</label>
               <input
                 type="date"
                 value={from}
-                onChange={(e) => { setFrom(e.target.value); setOrders(null); }}
+                onChange={(e) => {
+                  setFrom(e.target.value);
+                  setTo(e.target.value);
+                  setOrders(null);
+                }}
                 style={{
                   display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
                   boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
@@ -216,20 +221,36 @@ export default function ReconcileTab() {
                 }}
               />
             </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>ถึงวันที่</label>
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => { setTo(e.target.value); setOrders(null); }}
-                style={{
-                  display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
-                  boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
-                  border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
-                }}
-              />
+          ) : (
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>ตั้งแต่วันที่</label>
+                <input
+                  type="date"
+                  value={from}
+                  onChange={(e) => { setFrom(e.target.value); setOrders(null); }}
+                  style={{
+                    display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
+                    boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
+                    border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>ถึงวันที่</label>
+                <input
+                  type="date"
+                  value={to}
+                  onChange={(e) => { setTo(e.target.value); setOrders(null); }}
+                  style={{
+                    display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
+                    boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
+                    border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          )}
 
           <button
             onClick={loadOrders}
