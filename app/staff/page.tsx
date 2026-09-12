@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import StockTab from "../../components/StockTab";
 import UploadImageTab from "../../components/UploadImageTab";
@@ -74,6 +74,12 @@ function orderTotal(o: OrderRow) {
   );
 }
 
+// ออเดอร์ "เมนูออนไลน์" คือออเดอร์ที่ไม่ใช่ Grab และไม่ใช่ LINE MAN
+// (พนักงานคีย์ Grab/LINE MAN เองอยู่แล้ว รู้อยู่แล้วว่ามีออเดอร์ ไม่ต้องแจ้งเตือนซ้ำ)
+function isOnlineMenuOrder(o: OrderRow) {
+  return o.channel !== "grab" && o.channel !== "lineman";
+}
+
 function getCookie(name: string): string {
   const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
   return match ? decodeURIComponent(match[1]) : "";
@@ -106,6 +112,16 @@ export default function StaffPage() {
   const [staffName, setStaffName] = useState("");
   const isOwner = staffName === OWNER_NAME;
 
+  // ---- ส่วนใหม่: auto print + เสียงเตือนวนซ้ำ + ป๊อปอัพ สำหรับออเดอร์เมนูออนไลน์ ----
+  // เก็บ id ออเดอร์เมนูออนไลน์ที่ "ยังไม่ถูกจัดการ" (ยังไม่กดพิมพ์/รับ/ยกเลิก) -> ใช้คุมทั้งเสียงและป้ายแจ้งเตือน
+  const [alertOrderIds, setAlertOrderIds] = useState<Set<number>>(new Set());
+  // คิวรอพิมพ์อัตโนมัติ (เผื่อมีหลายออเดอร์เข้ามาพร้อมกัน จะพิมพ์ทีละใบ)
+  const [printQueue, setPrintQueue] = useState<OrderRow[]>([]);
+  // จำ id ออเดอร์ที่เคยเห็นแล้ว เพื่อรู้ว่าอันไหน "ใหม่จริง" (null = ยังไม่โหลดครั้งแรก)
+  const seenOrderIdsRef = useRef<Set<number> | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const soundIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   useEffect(() => {
     setStaffName(getCookie("staff_display_name"));
   }, []);
@@ -122,7 +138,35 @@ export default function StaffPage() {
       }
       const newData = await newRes.json();
       const acceptedData = await acceptedRes.json();
-      if (newRes.ok && newData.orders) setOrders(newData.orders as OrderRow[]);
+      if (newRes.ok && newData.orders) {
+        const freshOrders = newData.orders as OrderRow[];
+        setOrders(freshOrders);
+
+        // เช็คว่ามีออเดอร์เมนูออนไลน์ "ใหม่จริง" เข้ามาไหม (เทียบกับที่เคยเห็นแล้ว)
+        const onlineOrders = freshOrders.filter(isOnlineMenuOrder);
+        const currentIds = new Set(onlineOrders.map((o) => o.id));
+
+        if (seenOrderIdsRef.current === null) {
+          // โหลดครั้งแรกที่เปิดหน้า: ถือว่าที่เห็นอยู่ตอนนี้เป็นของเดิม ยังไม่ตีเสียงเตือน
+          seenOrderIdsRef.current = currentIds;
+        } else {
+          const freshIds = [...currentIds].filter(
+            (id) => !seenOrderIdsRef.current!.has(id)
+          );
+          if (freshIds.length > 0) {
+            setAlertOrderIds((prev) => {
+              const next = new Set(prev);
+              freshIds.forEach((id) => next.add(id));
+              return next;
+            });
+            setPrintQueue((prev) => [
+              ...prev,
+              ...onlineOrders.filter((o) => freshIds.includes(o.id))
+            ]);
+          }
+          seenOrderIdsRef.current = currentIds;
+        }
+      }
       if (acceptedRes.ok && acceptedData.orders) setAcceptedOrders(acceptedData.orders as OrderRow[]);
     } catch (err) {
       // ignore, will retry on next poll
@@ -136,12 +180,23 @@ export default function StaffPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ดึงออเดอร์ถัดไปจากคิวมาพิมพ์อัตโนมัติ ทีละใบ (รอใบก่อนหน้าพิมพ์เสร็จก่อน)
+  useEffect(() => {
+    if (printOrder) return;
+    if (printQueue.length === 0) return;
+    const next = printQueue[0];
+    setPrintQueue((prev) => prev.slice(1));
+    setPrintOrder(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [printQueue, printOrder]);
+
   useEffect(() => {
     if (!printOrder) return;
     const timer = setTimeout(() => window.print(), 200);
 
     function handleAfterPrint() {
       markPrinted(printOrder!.id);
+      clearAlert(printOrder!.id);
       setPrintOrder(null);
       resetZoomAfterPrint();
     }
@@ -152,6 +207,60 @@ export default function StaffPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [printOrder]);
+
+  // เอา id ออกจากรายการที่กำลังแจ้งเตือนอยู่ (ถือว่าพนักงาน "รับรู้" ออเดอร์นี้แล้ว)
+  function clearAlert(id: number) {
+    setAlertOrderIds((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.delete(id);
+      return next;
+    });
+  }
+
+  // เล่นเสียงเตือนสั้นๆ หนึ่งครั้ง ด้วย Web Audio API (ไม่ต้องมีไฟล์เสียงเพิ่ม)
+  function playBeep() {
+    try {
+      if (!audioCtxRef.current) {
+        const AC = window.AudioContext || (window as any).webkitAudioContext;
+        audioCtxRef.current = new AC();
+      }
+      const ctx = audioCtxRef.current;
+      if (ctx.state === "suspended") ctx.resume();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = 880;
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.45);
+    } catch (err) {
+      // เบราว์เซอร์บางตัวอาจบล็อกเสียงถ้าหน้ายังไม่เคยถูกแตะเลย ไม่ทำให้พังหน้าอื่น
+    }
+  }
+
+  // คุมเสียงเตือนแบบวนซ้ำ: ดังทุก 3 วิ ตราบใดที่ยังมีออเดอร์ค้างแจ้งเตือนอยู่อย่างน้อย 1 รายการ
+  useEffect(() => {
+    if (alertOrderIds.size > 0) {
+      if (!soundIntervalRef.current) {
+        playBeep();
+        soundIntervalRef.current = setInterval(playBeep, 3000);
+      }
+    } else if (soundIntervalRef.current) {
+      clearInterval(soundIntervalRef.current);
+      soundIntervalRef.current = null;
+    }
+    return () => {
+      if (soundIntervalRef.current) {
+        clearInterval(soundIntervalRef.current);
+        soundIntervalRef.current = null;
+      }
+    };
+  }, [alertOrderIds]);
+  // ---- จบส่วนใหม่ ----
 
   async function markPrinted(id: number) {
     await fetch("/api/staff-orders", {
@@ -167,6 +276,7 @@ export default function StaffPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action: "accept" })
     });
+    clearAlert(id);
     loadOrders();
   }
 
@@ -187,6 +297,7 @@ export default function StaffPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action: "cancel" })
     });
+    clearAlert(id);
     setOrders((prev) => prev.filter((o) => o.id !== id));
   }
 
@@ -201,7 +312,31 @@ export default function StaffPage() {
 
   return (
     <div>
-      <div className="no-print p-6">
+      {alertOrderIds.size > 0 && (
+        <div
+          className="no-print"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 50,
+            background: "#D62828",
+            color: "#fff",
+            textAlign: "center",
+            padding: "10px 16px",
+            fontWeight: 700,
+            fontSize: 14
+          }}
+        >
+          🔔 มีออเดอร์เมนูออนไลน์ใหม่ {alertOrderIds.size} รายการ — กำลังแจ้งเตือน (พิมพ์บิลหรือกดรับเงินเพื่อหยุดเสียง)
+        </div>
+      )}
+
+      <div
+        className="no-print p-6"
+        style={{ paddingTop: alertOrderIds.size > 0 ? 56 : undefined }}
+      >
         <div className="mb-1 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {isOwner && (
@@ -309,7 +444,7 @@ export default function StaffPage() {
           <>
             <p className="mb-4 text-sm text-ink/60">
               เปิดหน้านี้ค้างไว้บนคอมหรือแท็บเล็ตที่ต่อกับเครื่องพิมพ์ในร้าน
-              รายการจะอัปเดตเองทุก 5 วินาที กดปุ่ม "พิมพ์บิล" เมื่อพร้อม
+              รายการจะอัปเดตเองทุก 5 วินาที ออเดอร์เมนูออนไลน์ที่เข้ามาใหม่จะเด้งพิมพ์ให้เองพร้อมเสียงเตือน
               (แสดงเฉพาะออเดอร์ของวันนี้เท่านั้น)
             </p>
 
@@ -339,7 +474,15 @@ export default function StaffPage() {
                 )}
                 <div className="space-y-3">
                   {orders.map((o) => (
-                    <div key={o.id} className="rounded-xl border border-forest/15 bg-white p-4">
+                    <div
+                      key={o.id}
+                      className="rounded-xl border border-forest/15 bg-white p-4"
+                      style={
+                        alertOrderIds.has(o.id)
+                          ? { borderColor: "#D62828", borderWidth: 2 }
+                          : undefined
+                      }
+                    >
                       <div className="mb-2 flex items-start justify-between">
                         <div>
                           <p className="font-semibold text-ink">ออเดอร์ #{o.id}</p>
