@@ -260,9 +260,9 @@ export default function StockTab() {
             onClick={() => setActiveFilter(f)}
             style={{
               borderBottom: activeFilter === f ? "3px solid #E8792F" : "3px solid transparent",
-              padding: "14px 16px",
-              fontSize: 16,
-              fontWeight: 700,
+              padding: "10px 12px",
+              fontSize: 14,
+              fontWeight: 600,
               color: activeFilter === f ? "#B85A1F" : "#3A2A1866",
               background: "none",
               border: "none",
@@ -303,9 +303,9 @@ export default function StockTab() {
               textOverflow: "ellipsis",
               borderRadius: 9999,
               border: "1px solid",
-              padding: "16px 12px",
-              fontSize: 16,
-              fontWeight: 700,
+              padding: "12px 8px",
+              fontSize: 14,
+              fontWeight: 600,
               ...(activeCategory === cat
                 ? { borderColor: "#E8792F", backgroundColor: "#E8792F", color: "#FCEFC0" }
                 : { borderColor: "#E8792F33", backgroundColor: "#ffffff", color: "#B85A1F" })
