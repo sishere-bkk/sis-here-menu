@@ -87,7 +87,18 @@ export default function TestOrderTab() {
       <button
         onClick={fireTestOrder}
         disabled={loading}
-        className="rounded-full bg-forest px-6 py-2.5 text-sm font-medium text-sand disabled:opacity-50"
+        style={{
+          width: "100%",
+          borderRadius: 9999,
+          backgroundColor: "#E8792F",
+          padding: "20px 24px",
+          fontSize: 18,
+          fontWeight: 800,
+          color: "#FCEFC0",
+          border: "none",
+          boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
+          opacity: loading ? 0.5 : 1
+        }}
       >
         {loading ? "กำลังยิง..." : "ยิง Order สุ่ม 1 ออเดอร์"}
       </button>
