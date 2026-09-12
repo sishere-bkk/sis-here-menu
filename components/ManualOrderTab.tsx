@@ -358,9 +358,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           style={{
             flex: 1,
             borderRadius: 9999,
-            padding: "16px 18px",
-            fontSize: 16,
-            fontWeight: 700,
+            padding: "12px 14px",
+            fontSize: 15,
+            fontWeight: 600,
             border: "1px solid",
             ...(channel === "grab"
               ? { backgroundColor: "#0F6B3D", color: "#ffffff", borderColor: "#0F6B3D" }
@@ -374,9 +374,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           style={{
             flex: 1,
             borderRadius: 9999,
-            padding: "16px 18px",
-            fontSize: 16,
-            fontWeight: 700,
+            padding: "12px 14px",
+            fontSize: 15,
+            fontWeight: 600,
             border: "1px solid",
             ...(channel === "lineman"
               ? { backgroundColor: "#16A34A", color: "#ffffff", borderColor: "#16A34A" }
@@ -437,9 +437,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           marginBottom: 16,
           borderRadius: 9999,
           backgroundColor: "#E8792F",
-          padding: "20px 24px",
-          fontSize: 19,
-          fontWeight: 800,
+          padding: "14px 20px",
+          fontSize: 16,
+          fontWeight: 700,
           color: "#FCEFC0",
           boxShadow: "0 4px 10px rgba(0,0,0,0.15)",
           border: "none"
@@ -455,9 +455,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           style={{
             flex: 1,
             borderRadius: 9999,
-            padding: "16px 18px",
-            fontSize: 16,
-            fontWeight: 700,
+            padding: "12px 14px",
+            fontSize: 15,
+            fontWeight: 600,
             border: "1px solid",
             ...(needsUtensils
               ? { backgroundColor: "#0D9488", color: "#ffffff", borderColor: "#0D9488" }
@@ -471,9 +471,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           style={{
             flex: 1,
             borderRadius: 9999,
-            padding: "16px 18px",
-            fontSize: 16,
-            fontWeight: 700,
+            padding: "12px 14px",
+            fontSize: 15,
+            fontWeight: 600,
             border: "1px solid",
             ...(!needsUtensils
               ? { backgroundColor: "#D62828", color: "#ffffff", borderColor: "#D62828" }
@@ -506,8 +506,8 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           width: "100%",
           borderRadius: 9999,
           backgroundColor: "#E8792F",
-          padding: "18px 24px",
-          fontSize: 18,
+          padding: "14px 20px",
+          fontSize: 16,
           fontWeight: 700,
           color: "#FCEFC0",
           border: "none",
@@ -602,9 +602,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                         width: "100%",
                         borderRadius: 9999,
                         backgroundColor: "#E8792F",
-                        padding: "16px 18px",
-                        fontSize: 16,
-                        fontWeight: 700,
+                        padding: "12px 14px",
+                        fontSize: 15,
+                        fontWeight: 600,
                         color: "#FCEFC0",
                         border: "none"
                       }}
@@ -724,8 +724,8 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                   width: "100%",
                   borderRadius: 9999,
                   backgroundColor: "#E8792F",
-                  padding: "18px 24px",
-                  fontSize: 18,
+                  padding: "14px 20px",
+                  fontSize: 16,
                   fontWeight: 700,
                   color: "#FCEFC0",
                   border: "none",
