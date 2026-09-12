@@ -29,11 +29,21 @@ type Trends = {
   monthCompareDayCount: number;
 };
 
+type TopItemsData = {
+  topWeekItems: [string, number][];
+  topMonthItems: [string, number][];
+  bottomMonthItems: [string, number][];
+  zeroSoldCount: number;
+  monthDayCount: number;
+};
+
 export default function DashboardTab() {
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [trends, setTrends] = useState<Trends | null>(null);
   const [trendsLoading, setTrendsLoading] = useState(true);
+  const [topItemsData, setTopItemsData] = useState<TopItemsData | null>(null);
+  const [topItemsLoading, setTopItemsLoading] = useState(true);
 
   useEffect(() => {
     function load() {
@@ -64,6 +74,20 @@ export default function DashboardTab() {
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    function loadTopItems() {
+      fetch("/api/dashboard-top-items")
+        .then((res) => res.json())
+        .then((json) => {
+          setTopItemsData(json);
+          setTopItemsLoading(false);
+        });
+    }
+    loadTopItems();
+    const interval = setInterval(loadTopItems, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   if (loading) return <p className="text-ink/50">กำลังโหลด...</p>;
   if (!data) return <p className="text-ink/50">โหลดข้อมูลไม่สำเร็จ</p>;
 
@@ -72,9 +96,9 @@ export default function DashboardTab() {
   return (
     <div>
       <div className="mb-6 flex gap-3">
-        <Card label="ยอดขายรวม" value={`${data.totalSales.toLocaleString()} บาท`} />
-        <Card label="จำนวน Order" value={`${data.orderCount}`} />
-        <Card label="เฉลี่ย/บิล" value={`${data.avgOrderValue.toFixed(0)} บาท`} />
+        <Card label="ยอดขายวันนี้" value={`${data.totalSales.toLocaleString()} บาท`} />
+        <Card label="จำนวน Order วันนี้" value={`${data.orderCount}`} />
+        <Card label="เฉลี่ย/บิล วันนี้" value={`${data.avgOrderValue.toFixed(0)} บาท`} />
       </div>
 
       <h3 className="mb-2 text-sm font-semibold text-ink">ยอดขายย้อนหลัง 7 วัน</h3>
@@ -120,11 +144,44 @@ export default function DashboardTab() {
       </div>
 
       <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 วันนี้</h3>
-      <div>
+      <div className="mb-6">
         {data.topItems.length === 0 && <Empty />}
         {data.topItems.map(([name, qty]) => (
           <BarRow key={name} label={name} value={qty} max={maxItemQty} display={`${qty} ชิ้น`} />
         ))}
+      </div>
+
+      <p className="mb-3 text-xs text-ink/40">
+        3 รายการด้านล่างนี้ไม่รวมหมวด &quot;เครื่องดื่ม&quot;
+      </p>
+
+      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 สัปดาห์นี้</h3>
+      <div className="mb-6">
+        {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
+        {!topItemsLoading && topItemsData && (
+          <TopItemsList items={topItemsData.topWeekItems} unit="ชิ้น" />
+        )}
+      </div>
+
+      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 เดือนนี้</h3>
+      <div className="mb-6">
+        {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
+        {!topItemsLoading && topItemsData && (
+          <TopItemsList items={topItemsData.topMonthItems} unit="ชิ้น" />
+        )}
+      </div>
+
+      <h3 className="mb-1 text-sm font-semibold text-ink">เมนูขายน้อยสุด Top 5 เดือนนี้</h3>
+      {!topItemsLoading && topItemsData && topItemsData.zeroSoldCount > 0 && (
+        <p className="mb-2 text-xs text-ink/40">
+          มีเมนูที่ยอดขาย 0 ชิ้นเดือนนี้ทั้งหมด {topItemsData.zeroSoldCount} รายการ
+        </p>
+      )}
+      <div>
+        {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
+        {!topItemsLoading && topItemsData && (
+          <TopItemsList items={topItemsData.bottomMonthItems} unit="ชิ้น" />
+        )}
       </div>
     </div>
   );
@@ -141,33 +198,51 @@ function Card({ label, value }: { label: string; value: string }) {
 
 function DailyBarChart({ days }: { days: DailySale[] }) {
   const max = Math.max(1, ...days.map((d) => d.total));
+  const BAR_AREA_PX = 120; // ความสูงพื้นที่แท่งกราฟ (ไม่รวมตัวเลขและป้ายวัน)
   const today = days[days.length - 1]?.date;
   return (
-    <div className="flex items-end gap-2 rounded-xl bg-forest/5 px-3 py-4" style={{ height: 160 }}>
-      {days.map((day) => {
-        const heightPct = Math.max(4, Math.round((day.total / max) * 100));
-        const isToday = day.date === today;
-        return (
-          <div key={day.date} className="flex flex-1 flex-col items-center gap-1">
-            <span className="text-[10px] text-ink/50">
-              {day.total >= 1000 ? `${(day.total / 1000).toFixed(1)}k` : day.total.toFixed(0)}
-            </span>
-            <div
-              className="flex w-full items-end"
-              style={{ height: 90 }}
-            >
-              <div
-                className={isToday ? "w-full rounded-t bg-forestDark" : "w-full rounded-t bg-forest"}
-                style={{ height: `${heightPct}%` }}
-              />
+    <div>
+      <div
+        className="flex items-end gap-2 rounded-xl border border-forest/15 bg-white px-3 pb-3 pt-4"
+      >
+        {days.map((day) => {
+          // ใช้พิกเซลตรงๆ แทน % เพื่อกันไม่ให้ค่าน้อยๆ (หรือ 0) เตี้ยจนมองไม่เห็นเป็นแท่ง
+          const heightPx = Math.max(6, Math.round((day.total / max) * BAR_AREA_PX));
+          const isToday = day.date === today;
+          return (
+            <div key={day.date} className="flex flex-1 flex-col items-center gap-1">
+              <span
+                className="whitespace-nowrap text-[11px] font-medium text-ink/70"
+                style={{ fontVariantNumeric: "tabular-nums" }}
+              >
+                {Math.round(day.total).toLocaleString()}
+              </span>
+              <div className="flex w-full items-end justify-center" style={{ height: BAR_AREA_PX }}>
+                <div
+                  className="w-full rounded-t"
+                  style={{
+                    height: heightPx,
+                    backgroundColor: isToday ? "#E8792F" : "#8B3A2B"
+                  }}
+                />
+              </div>
+              <span
+                className={
+                  isToday
+                    ? "text-xs font-bold"
+                    : "text-xs text-ink/60"
+                }
+                style={isToday ? { color: "#E8792F" } : undefined}
+              >
+                {day.label}
+              </span>
             </div>
-            <span className={isToday ? "text-[11px] font-semibold text-forestDark" : "text-[11px] text-ink/60"}>
-              {day.label}
-              {isToday ? " (วันนี้)" : ""}
-            </span>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      <p className="mt-1.5 text-[11px] text-ink/40">
+        <span style={{ color: "#E8792F" }}>■</span> แท่งสีส้ม = วันนี้ (หน่วย: บาท)
+      </p>
     </div>
   );
 }
@@ -226,6 +301,18 @@ function BarRow({
       <div className="h-2.5 overflow-hidden rounded-full bg-forest/10">
         <div className="h-full bg-forest" style={{ width: `${pct}%` }} />
       </div>
+    </div>
+  );
+}
+
+function TopItemsList({ items, unit }: { items: [string, number][]; unit: string }) {
+  if (items.length === 0) return <Empty />;
+  const max = Math.max(1, ...items.map(([, qty]) => qty));
+  return (
+    <div>
+      {items.map(([name, qty]) => (
+        <BarRow key={name} label={name} value={qty} max={max} display={`${qty} ${unit}`} />
+      ))}
     </div>
   );
 }
