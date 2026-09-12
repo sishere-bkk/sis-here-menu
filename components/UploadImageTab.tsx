@@ -151,7 +151,7 @@ export default function UploadImageTab() {
         <button
           onClick={() => setTarget("menu")}
           style={{
-            flex: 1, borderRadius: 14, padding: "18px 20px", fontSize: 17, fontWeight: 800, border: "none",
+            flex: 1, borderRadius: 14, padding: "12px 16px", fontSize: 15, fontWeight: 700, border: "none",
             backgroundColor: target === "menu" ? "#E8792F" : "transparent",
             color: target === "menu" ? "#FCEFC0" : "#B85A1F99"
           }}
@@ -161,7 +161,7 @@ export default function UploadImageTab() {
         <button
           onClick={() => setTarget("stock")}
           style={{
-            flex: 1, borderRadius: 14, padding: "18px 20px", fontSize: 17, fontWeight: 800, border: "none",
+            flex: 1, borderRadius: 14, padding: "12px 16px", fontSize: 15, fontWeight: 700, border: "none",
             backgroundColor: target === "stock" ? "#E8792F" : "transparent",
             color: target === "stock" ? "#FCEFC0" : "#B85A1F99"
           }}
