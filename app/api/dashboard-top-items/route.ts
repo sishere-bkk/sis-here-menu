@@ -107,6 +107,8 @@ export async function GET() {
 
   const topWeekItems = topN(weekSums, 5);
   const topMonthItems = topN(monthSums, 5);
+  const totalWeekQty = [...weekSums.values()].reduce((s, v) => s + v, 0);
+  const totalMonthQty = [...monthSums.values()].reduce((s, v) => s + v, 0);
 
   // เมนูขายน้อยสุดของเดือนนี้: ต้องมาจากเมนูที่ "ยังเปิดขายอยู่จริง" เท่านั้น (ไม่เอาเมนูที่ปิดไปแล้วมาป็นข้อมูลหลอก)
   // รวมเมนูที่ยอดขาย 0 ชิ้นด้วย เพราะเป็นข้อมูลสำคัญพอๆ กับเมนูที่ขายได้น้อย
@@ -123,6 +125,8 @@ export async function GET() {
     topMonthItems,
     bottomMonthItems,
     zeroSoldCount,
-    monthDayCount: today.d
+    monthDayCount: today.d,
+    totalWeekQty,
+    totalMonthQty
   });
 }
