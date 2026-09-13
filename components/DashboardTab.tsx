@@ -14,6 +14,7 @@ type Summary = {
   avgOrderValue: number;
   byChannel: Record<string, number>;
   topItems: [string, number][];
+  totalItemQty: number;
 };
 
 type DailySale = { date: string; label: string; total: number };
@@ -35,6 +36,18 @@ type TopItemsData = {
   bottomMonthItems: [string, number][];
   zeroSoldCount: number;
   monthDayCount: number;
+  totalWeekQty: number;
+  totalMonthQty: number;
+};
+
+// สีสำหรับกราฟวงกลม เมนู (ไล่ตามลำดับ 1-5 ของ top5 แล้วที่เหลือใช้สีเทาเป็น "อื่นๆ")
+const ITEM_PIE_COLORS = ["#8B3A2B", "#E8792F", "#B85A1F", "#F2B705", "#3A2A18"];
+const OTHERS_COLOR = "#C9C2B4";
+// สีช่องทาง ใช้สีเดียวกับที่ตั้งไว้ในหน้าคีย์ออเดอร์ ให้สอดคล้องกันทั้งระบบ
+const CHANNEL_COLORS: Record<string, string> = {
+  online_menu: "#E8792F",
+  grab: "#0F6B3D",
+  lineman: "#16A34A",
 };
 
 export default function DashboardTab() {
@@ -141,37 +154,63 @@ export default function DashboardTab() {
             display={`${amount.toLocaleString()} บาท`}
           />
         ))}
+        {Object.keys(data.byChannel).length > 0 && (
+          <div className="mt-3">
+            <DonutChart
+              segments={Object.entries(data.byChannel).map(([ch, amount]) => ({
+                label: CHANNEL_LABELS[ch] ?? ch,
+                value: amount,
+                color: CHANNEL_COLORS[ch] ?? OTHERS_COLOR,
+              }))}
+            />
+          </div>
+        )}
       </div>
 
-      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 วันนี้</h3>
+      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 วันนี้ (ไม่รวมเครื่องดื่ม)</h3>
       <div className="mb-6">
         {data.topItems.length === 0 && <Empty />}
         {data.topItems.map(([name, qty]) => (
           <BarRow key={name} label={name} value={qty} max={maxItemQty} display={`${qty} ชิ้น`} />
         ))}
-      </div>
-
-      <p className="mb-3 text-xs text-ink/40">
-        3 รายการด้านล่างนี้ไม่รวมหมวด &quot;เครื่องดื่ม&quot;
-      </p>
-
-      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 สัปดาห์นี้</h3>
-      <div className="mb-6">
-        {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
-        {!topItemsLoading && topItemsData && (
-          <TopItemsList items={topItemsData.topWeekItems} unit="ชิ้น" />
+        {data.topItems.length > 0 && (
+          <div className="mt-3">
+            <ItemPie items={data.topItems} totalQty={data.totalItemQty} />
+          </div>
         )}
       </div>
 
-      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 เดือนนี้</h3>
+      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 สัปดาห์นี้ (ไม่รวมเครื่องดื่ม)</h3>
       <div className="mb-6">
         {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
         {!topItemsLoading && topItemsData && (
-          <TopItemsList items={topItemsData.topMonthItems} unit="ชิ้น" />
+          <>
+            <TopItemsList items={topItemsData.topWeekItems} unit="ชิ้น" />
+            {topItemsData.topWeekItems.length > 0 && (
+              <div className="mt-3">
+                <ItemPie items={topItemsData.topWeekItems} totalQty={topItemsData.totalWeekQty} />
+              </div>
+            )}
+          </>
         )}
       </div>
 
-      <h3 className="mb-1 text-sm font-semibold text-ink">เมนูขายน้อยสุด Top 5 เดือนนี้</h3>
+      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 เดือนนี้ (ไม่รวมเครื่องดื่ม)</h3>
+      <div className="mb-6">
+        {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
+        {!topItemsLoading && topItemsData && (
+          <>
+            <TopItemsList items={topItemsData.topMonthItems} unit="ชิ้น" />
+            {topItemsData.topMonthItems.length > 0 && (
+              <div className="mt-3">
+                <ItemPie items={topItemsData.topMonthItems} totalQty={topItemsData.totalMonthQty} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      <h3 className="mb-1 text-sm font-semibold text-ink">เมนูขายน้อยสุด Top 5 เดือนนี้ (ไม่รวมเครื่องดื่ม)</h3>
       {!topItemsLoading && topItemsData && topItemsData.zeroSoldCount > 0 && (
         <p className="mb-2 text-xs text-ink/40">
           มีเมนูที่ยอดขาย 0 ชิ้นเดือนนี้ทั้งหมด {topItemsData.zeroSoldCount} รายการ
@@ -210,10 +249,16 @@ function DailyBarChart({ days }: { days: DailySale[] }) {
           const heightPx = Math.max(6, Math.round((day.total / max) * BAR_AREA_PX));
           const isToday = day.date === today;
           return (
-            <div key={day.date} className="flex flex-1 flex-col items-center gap-1">
+            <div key={day.date} className="flex flex-1 flex-col items-center" style={{ gap: 4 }}>
               <span
-                className="whitespace-nowrap text-[11px] font-medium text-ink/70"
-                style={{ fontVariantNumeric: "tabular-nums" }}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: "#3A2A18",
+                  opacity: 0.65,
+                  whiteSpace: "nowrap",
+                  fontVariantNumeric: "tabular-nums"
+                }}
               >
                 {Math.round(day.total).toLocaleString()}
               </span>
@@ -227,12 +272,12 @@ function DailyBarChart({ days }: { days: DailySale[] }) {
                 />
               </div>
               <span
-                className={
-                  isToday
-                    ? "text-xs font-bold"
-                    : "text-xs text-ink/60"
-                }
-                style={isToday ? { color: "#E8792F" } : undefined}
+                style={{
+                  fontSize: 12,
+                  fontWeight: isToday ? 700 : 400,
+                  color: isToday ? "#E8792F" : "#3A2A18",
+                  opacity: isToday ? 1 : 0.6
+                }}
               >
                 {day.label}
               </span>
@@ -240,9 +285,109 @@ function DailyBarChart({ days }: { days: DailySale[] }) {
           );
         })}
       </div>
-      <p className="mt-1.5 text-[11px] text-ink/40">
+      <p style={{ marginTop: 8, paddingLeft: 4, fontSize: 11, color: "#3A2A18", opacity: 0.4 }}>
         <span style={{ color: "#E8792F" }}>■</span> แท่งสีส้ม = วันนี้ (หน่วย: บาท)
       </p>
+    </div>
+  );
+}
+
+// กราฟวงกลมแบบทั่วไป: รับ segments (ป้าย, ค่า, สี) มาวาดเป็นวงแหวน + คำอธิบายสี พร้อม % ด้านข้าง
+function DonutChart({
+  segments,
+  size = 108,
+  strokeWidth = 20,
+}: {
+  segments: { label: string; value: number; color: string }[];
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  let cumulativeFraction = 0;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#EFE9DA"
+          strokeWidth={strokeWidth}
+        />
+        {segments.map((seg, i) => {
+          const fraction = seg.value / total;
+          const dash = fraction * circumference;
+          const gap = circumference - dash;
+          const offset = -cumulativeFraction * circumference;
+          cumulativeFraction += fraction;
+          if (fraction <= 0) return null;
+          return (
+            <circle
+              key={i}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${dash} ${gap}`}
+              strokeDashoffset={offset}
+            />
+          );
+        })}
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {segments.map((seg, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 3,
+                background: seg.color,
+                flexShrink: 0,
+                display: "inline-block"
+              }}
+            />
+            <span
+              style={{ fontSize: 12, color: "#3A2A18", flex: 1, minWidth: 0 }}
+              className="truncate"
+            >
+              {seg.label}
+            </span>
+            <span style={{ fontSize: 12, color: "#3A2A18", opacity: 0.6, flexShrink: 0 }}>
+              {((seg.value / total) * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// กราฟวงกลมเฉพาะสำหรับเมนูขายดี: top5 แต่ละอันเป็น 1 ชิ้นส่วน ที่เหลือนอก top5 มัดรวมเป็น "เมนูอื่นๆ"
+function ItemPie({ items, totalQty }: { items: [string, number][]; totalQty: number }) {
+  const top5Qty = items.reduce((sum, [, qty]) => sum + qty, 0);
+  const othersQty = Math.max(0, totalQty - top5Qty);
+  const segments = items.map(([name, qty], i) => ({
+    label: name,
+    value: qty,
+    color: ITEM_PIE_COLORS[i % ITEM_PIE_COLORS.length]
+  }));
+  if (othersQty > 0) {
+    segments.push({ label: "เมนูอื่นๆ", value: othersQty, color: OTHERS_COLOR });
+  }
+  const top5Pct = totalQty > 0 ? (top5Qty / totalQty) * 100 : 0;
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: "#3A2A18", opacity: 0.6, marginBottom: 8 }}>
+        5 เมนูนี้รวมกันคิดเป็น <strong style={{ opacity: 1 }}>{top5Pct.toFixed(0)}%</strong> ของยอดขายชิ้น (ไม่รวมเครื่องดื่ม)
+      </p>
+      <DonutChart segments={segments} />
     </div>
   );
 }
