@@ -307,4 +307,207 @@ function DailyBarChart({ days }: { days: DailySale[] }) {
                 }}
               >
                 {Math.round(day.total).toLocaleString()}
-         
+              </span>
+              <div className="flex w-full items-end justify-center" style={{ height: BAR_AREA_PX }}>
+                <div
+                  className="w-full rounded-t"
+                  style={{
+                    height: heightPx,
+                    backgroundColor: isToday ? "#E8792F" : "#8B3A2B"
+                  }}
+                />
+              </div>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: isToday ? 700 : 400,
+                  color: isToday ? "#E8792F" : "#3A2A18",
+                  opacity: isToday ? 1 : 0.6
+                }}
+              >
+                {day.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <p style={{ marginTop: 8, paddingLeft: 4, fontSize: 11, color: "#3A2A18", opacity: 0.4 }}>
+        <span style={{ color: "#E8792F" }}>■</span> แท่งสีส้ม = วันนี้ (หน่วย: บาท)
+      </p>
+    </div>
+  );
+}
+
+// กราฟวงกลมแบบทั่วไป: รับ segments (ป้าย, ค่า, สี) มาวาดเป็นวงแหวน + คำอธิบายสี พร้อม % ด้านข้าง
+function DonutChart({
+  segments,
+  size = 108,
+  strokeWidth = 20,
+}: {
+  segments: { label: string; value: number; color: string }[];
+  size?: number;
+  strokeWidth?: number;
+}) {
+  const total = segments.reduce((sum, s) => sum + s.value, 0) || 1;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  let cumulativeFraction = 0;
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)", flexShrink: 0 }}>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="#EFE9DA"
+          strokeWidth={strokeWidth}
+        />
+        {segments.map((seg, i) => {
+          const fraction = seg.value / total;
+          const dash = fraction * circumference;
+          const gap = circumference - dash;
+          const offset = -cumulativeFraction * circumference;
+          cumulativeFraction += fraction;
+          if (fraction <= 0) return null;
+          return (
+            <circle
+              key={i}
+              cx={size / 2}
+              cy={size / 2}
+              r={radius}
+              fill="none"
+              stroke={seg.color}
+              strokeWidth={strokeWidth}
+              strokeDasharray={`${dash} ${gap}`}
+              strokeDashoffset={offset}
+            />
+          );
+        })}
+      </svg>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {segments.map((seg, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+            <span
+              style={{
+                width: 10,
+                height: 10,
+                borderRadius: 3,
+                background: seg.color,
+                flexShrink: 0,
+                display: "inline-block"
+              }}
+            />
+            <span
+              style={{ fontSize: 12, color: "#3A2A18", flex: 1, minWidth: 0 }}
+              className="truncate"
+            >
+              {seg.label}
+            </span>
+            <span style={{ fontSize: 12, color: "#3A2A18", opacity: 0.6, flexShrink: 0 }}>
+              {((seg.value / total) * 100).toFixed(0)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// กราฟวงกลมเฉพาะสำหรับเมนูขายดี: top5 แต่ละอันเป็น 1 ชิ้นส่วน ที่เหลือนอก top5 มัดรวมเป็น "เมนูอื่นๆ"
+function ItemPie({ items, totalQty }: { items: [string, number][]; totalQty: number }) {
+  const top5Qty = items.reduce((sum, [, qty]) => sum + qty, 0);
+  const othersQty = Math.max(0, totalQty - top5Qty);
+  const segments = items.map(([name, qty], i) => ({
+    label: name,
+    value: qty,
+    color: ITEM_PIE_COLORS[i % ITEM_PIE_COLORS.length]
+  }));
+  if (othersQty > 0) {
+    segments.push({ label: "เมนูอื่นๆ", value: othersQty, color: OTHERS_COLOR });
+  }
+  const top5Pct = totalQty > 0 ? (top5Qty / totalQty) * 100 : 0;
+  return (
+    <div>
+      <p style={{ fontSize: 12, color: "#3A2A18", opacity: 0.6, marginBottom: 8 }}>
+        5 เมนูนี้รวมกันคิดเป็น <strong style={{ opacity: 1 }}>{top5Pct.toFixed(0)}%</strong> ของยอดขายชิ้นทั้งหมด
+      </p>
+      <DonutChart segments={segments} />
+    </div>
+  );
+}
+
+function CompareCard({
+  label,
+  current,
+  previous,
+  pct,
+  previousLabel,
+}: {
+  label: string;
+  current: number;
+  previous: number;
+  pct: number | null;
+  previousLabel: string;
+}) {
+  const isUp = pct != null && pct > 0;
+  const isDown = pct != null && pct < 0;
+  return (
+    <div className="flex-1 rounded-xl bg-forest/10 p-3">
+      <div className="mb-1 text-xs text-ink/60">{label}</div>
+      <div className="text-base font-bold text-ink">{current.toLocaleString()} บาท</div>
+      <div className="mt-1 text-xs">
+        {pct == null ? (
+          <span className="text-ink/40">ยังไม่มี{previousLabel}ให้เทียบ</span>
+        ) : (
+          <span className={isUp ? "text-green-700" : isDown ? "text-red-600" : "text-ink/50"}>
+            {isUp ? "▲" : isDown ? "▼" : "–"} {Math.abs(pct).toFixed(0)}% จาก{previousLabel} (
+            {previous.toLocaleString()} บาท)
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BarRow({
+  label,
+  value,
+  max,
+  display,
+}: {
+  label: string;
+  value: number;
+  max: number;
+  display: string;
+}) {
+  const pct = Math.max(4, Math.round((value / max) * 100));
+  return (
+    <div className="mb-2.5">
+      <div className="mb-1 flex justify-between text-xs">
+        <span className="text-ink">{label}</span>
+        <span className="text-ink/60">{display}</span>
+      </div>
+      <div className="h-2.5 overflow-hidden rounded-full bg-forest/10">
+        <div className="h-full bg-forest" style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
+function TopItemsList({ items, unit }: { items: [string, number][]; unit: string }) {
+  if (items.length === 0) return <Empty />;
+  const max = Math.max(1, ...items.map(([, qty]) => qty));
+  return (
+    <div>
+      {items.map(([name, qty]) => (
+        <BarRow key={name} label={name} value={qty} max={max} display={`${qty} ${unit}`} />
+      ))}
+    </div>
+  );
+}
+
+function Empty() {
+  return <p className="text-xs text-ink/40">ยังไม่มีข้อมูลวันนี้</p>;
+}
