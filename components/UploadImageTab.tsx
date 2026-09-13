@@ -6,7 +6,9 @@ import { supabase } from "@/lib/supabaseClient";
 type Item = {
   id: string;
   label: string;
+  category: string;
   hasPhoto: boolean;
+  photoUrl: string | null;
 };
 
 type MenuImageField = "image_url" | "delivery_image_url";
@@ -30,7 +32,8 @@ export default function UploadImageTab() {
       const hasPhotoColumn = menuImageField; // "image_url" | "delivery_image_url"
       supabase
         .from("menu")
-        .select(`id,name,delivery_name,${hasPhotoColumn}`)
+        .select(`id,name,delivery_name,category,${hasPhotoColumn}`)
+        .order("category")
         .order("name")
         .then(({ data }) => {
           if (data) {
@@ -42,7 +45,9 @@ export default function UploadImageTab() {
                   menuImageField === "delivery_image_url"
                     ? d.delivery_name || d.name
                     : d.name,
-                hasPhoto: !!d[hasPhotoColumn]
+                category: d.category || "อื่นๆ",
+                hasPhoto: !!d[hasPhotoColumn],
+                photoUrl: d[hasPhotoColumn] || null,
               }))
             );
           }
@@ -55,8 +60,10 @@ export default function UploadImageTab() {
             setItems(
               json.items.map((d: any) => ({
                 id: d.id,
-                label: `[${d.category}] ${d.name}`,
+                label: d.name,
+                category: d.category || "อื่นๆ",
                 hasPhoto: !!d.photo_url,
+                photoUrl: d.photo_url || null,
               }))
             );
           }
@@ -117,7 +124,11 @@ export default function UploadImageTab() {
 
       setStatus("done");
       setMessage("อัปโหลดรูปสำเร็จแล้ว");
-      setItems((prev) => prev.map((it) => (it.id === selectedId ? { ...it, hasPhoto: true } : it)));
+      setItems((prev) =>
+        prev.map((it) =>
+          it.id === selectedId ? { ...it, hasPhoto: true, photoUrl: it.photoUrl } : it
+        )
+      );
     } catch (err) {
       setStatus("error");
       setMessage("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง");
@@ -137,13 +148,23 @@ export default function UploadImageTab() {
     if (res.ok) {
       setMessage("ลบรูปแล้ว");
       setPreview(null);
-      setItems((prev) => prev.map((it) => (it.id === selectedId ? { ...it, hasPhoto: false } : it)));
+      setItems((prev) =>
+        prev.map((it) => (it.id === selectedId ? { ...it, hasPhoto: false, photoUrl: null } : it))
+      );
     } else {
       setMessage("ลบไม่สำเร็จ");
     }
   }
 
   const selectedItem = items.find((i) => i.id === selectedId);
+  // รูปที่ควรโชว์: ถ้าเพิ่งเลือกไฟล์ใหม่รออัปโหลด โชว์ตัวอย่างไฟล์ใหม่ก่อน ไม่งั้นโชว์รูปปัจจุบันที่ใช้อยู่ (ถ้ามี)
+  const displayImage = preview || selectedItem?.photoUrl || null;
+
+  // จัดกลุ่มรายการตามหมวดหมู่ ให้ dropdown แยกเป็นหมวดๆ อ่านง่ายขึ้น
+  const groupedItems = items.reduce<Record<string, Item[]>>((acc, item) => {
+    (acc[item.category] ??= []).push(item);
+    return acc;
+  }, {});
 
   return (
     <div className="max-w-md">
@@ -173,20 +194,24 @@ export default function UploadImageTab() {
       {target === "menu" && (
         <div className="mb-4">
           <label className="mb-2 block text-sm text-ink/60">อัปโหลดรูปให้</label>
-          <div className="inline-flex rounded-2xl bg-forest/10 p-1">
+          <div style={{ display: "flex", width: "100%", gap: 6, borderRadius: 16, backgroundColor: "#E8792F1A", padding: 4 }}>
             <button
               onClick={() => setMenuImageField("image_url")}
-              className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
-                menuImageField === "image_url" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
-              }`}
+              style={{
+                flex: 1, borderRadius: 12, padding: "10px 12px", fontSize: 13, fontWeight: 700, border: "none",
+                backgroundColor: menuImageField === "image_url" ? "#E8792F" : "transparent",
+                color: menuImageField === "image_url" ? "#FCEFC0" : "#B85A1F99"
+              }}
             >
               เมนูออนไลน์
             </button>
             <button
               onClick={() => setMenuImageField("delivery_image_url")}
-              className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors ${
-                menuImageField === "delivery_image_url" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
-              }`}
+              style={{
+                flex: 1, borderRadius: 12, padding: "10px 12px", fontSize: 13, fontWeight: 700, border: "none",
+                backgroundColor: menuImageField === "delivery_image_url" ? "#E8792F" : "transparent",
+                color: menuImageField === "delivery_image_url" ? "#FCEFC0" : "#B85A1F99"
+              }}
             >
               Grab / LINE MAN
             </button>
@@ -200,14 +225,23 @@ export default function UploadImageTab() {
       <label className="mb-2 block text-sm text-ink/60">เลือกรายการ</label>
       <select
         value={selectedId}
-        onChange={(e) => setSelectedId(e.target.value)}
+        onChange={(e) => {
+          setSelectedId(e.target.value);
+          setPreview(null);
+          setMessage("");
+        }}
         className="mb-4 w-full rounded-xl border border-forest/15 p-2.5"
+        style={{ textAlign: "center" }}
       >
         <option value="">-- เลือกรายการ --</option>
-        {items.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.label} {item.hasPhoto ? "(มีรูปแล้ว)" : "(ยังไม่มีรูป)"}
-          </option>
+        {Object.entries(groupedItems).map(([category, group]) => (
+          <optgroup key={category} label={category}>
+            {group.map((item) => (
+              <option key={item.id} value={item.id} style={{ textAlign: "left" }}>
+                {item.label} {item.hasPhoto ? "(มีรูปแล้ว)" : "(ยังไม่มีรูป)"}
+              </option>
+            ))}
+          </optgroup>
         ))}
       </select>
 
@@ -239,7 +273,14 @@ export default function UploadImageTab() {
         </button>
       )}
 
-      {preview && <img src={preview} alt="preview" className="mb-4 w-full rounded-xl" />}
+      {displayImage && (
+        <div className="mb-4">
+          <p className="mb-1 text-xs text-ink/40">
+            {preview ? "ตัวอย่างรูปใหม่ที่จะอัปโหลด" : "รูปปัจจุบันที่ใช้อยู่"}
+          </p>
+          <img src={displayImage} alt="preview" className="w-full rounded-xl" />
+        </div>
+      )}
 
       {status === "uploading" && <p className="text-ink/60">กำลังอัปโหลด...</p>}
       {message && <p className="text-ink/60">{message}</p>}
