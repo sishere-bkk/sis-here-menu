@@ -57,7 +57,7 @@ export async function GET() {
   // ดึงออเดอร์ตั้งแต่ต้นเดือนก่อนหน้า จนถึงสิ้นวันนี้ (ครอบคลุมทั้งกราฟ 7 วัน / เทียบสัปดาห์ / เทียบเดือน)
   const { data: orders, error } = await supabaseAdmin
     .from("orders")
-    .select("total_amount, status, created_at")
+    .select("total_amount, status, created_at, channel")
     .eq("status", "accepted")
     .gte("created_at", new Date(fetchStartMs).toISOString())
     .lt("created_at", new Date(tomorrowStartMs).toISOString());
@@ -91,6 +91,22 @@ export async function GET() {
 
   const thisWeekTotal = dailySales.reduce((sum, day) => sum + day.total, 0);
 
+  // ยอดขายแยกตามช่องทาง ของสัปดาห์นี้ (7 วันล่าสุด) และเดือนนี้ (วันที่ 1 ถึงวันนี้)
+  const weekStartMs = todayStartMs - 6 * DAY_MS;
+  const monthStartMs = startOfBangkokDayUtcMs(today.y, today.m, 1);
+  const weekByChannel: Record<string, number> = {};
+  const monthByChannel: Record<string, number> = {};
+  for (const o of orders ?? []) {
+    const createdMs = new Date(o.created_at as string).getTime();
+    const ch = (o as any).channel ?? "online_menu";
+    if (createdMs >= weekStartMs) {
+      weekByChannel[ch] = (weekByChannel[ch] ?? 0) + (o.total_amount ?? 0);
+    }
+    if (createdMs >= monthStartMs) {
+      monthByChannel[ch] = (monthByChannel[ch] ?? 0) + (o.total_amount ?? 0);
+    }
+  }
+
   // สัปดาห์ก่อนหน้า = 7 วันก่อนช่วง 7 วันล่าสุด (วันที่ 8-14 วันก่อนวันนี้)
   let lastWeekTotal = 0;
   for (let offset = 13; offset >= 7; offset--) {
@@ -123,6 +139,8 @@ export async function GET() {
     thisMonthTotal,
     lastMonthSamePeriodTotal,
     monthChangePct: pctChange(thisMonthTotal, lastMonthSamePeriodTotal),
-    monthCompareDayCount: lastMonthDayCap
+    monthCompareDayCount: lastMonthDayCap,
+    weekByChannel,
+    monthByChannel
   });
 }
