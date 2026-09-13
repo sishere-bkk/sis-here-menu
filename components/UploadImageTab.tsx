@@ -30,28 +30,33 @@ export default function UploadImageTab() {
 
     if (target === "menu") {
       const hasPhotoColumn = menuImageField; // "image_url" | "delivery_image_url"
-      supabase
+      let query = supabase
         .from("menu")
-        .select(`id,name,delivery_name,category,${hasPhotoColumn}`)
+        .select(`id,name,delivery_name,category,channel_scope,${hasPhotoColumn}`)
         .order("category")
-        .order("name")
-        .then(({ data }) => {
-          if (data) {
-            setItems(
-              data.map((d: any) => ({
-                id: d.id,
-                // ถ้ากำลังอัปรูปฝั่ง Grab/LINE MAN ใช้ชื่อ delivery_name แสดงถ้ามี จะได้แยกแยะง่ายขึ้น
-                label:
-                  menuImageField === "delivery_image_url"
-                    ? d.delivery_name || d.name
-                    : d.name,
-                category: d.category || "อื่นๆ",
-                hasPhoto: !!d[hasPhotoColumn],
-                photoUrl: d[hasPhotoColumn] || null,
-              }))
-            );
-          }
-        });
+        .order("name");
+      // เมนูออนไลน์ต้องไม่โชว์รายการที่ตั้งไว้ว่า "ขายเฉพาะ Grab/LINE MAN เท่านั้น" (channel_scope = delivery_only)
+      // ส่วนฝั่ง Grab/LINE MAN โชว์ได้ทุกรายการ เพราะเมนู "all" ก็ขายฝั่งเดลิเวอรี่ด้วยเหมือนกัน
+      if (menuImageField === "image_url") {
+        query = query.neq("channel_scope", "delivery_only");
+      }
+      query.then(({ data }) => {
+        if (data) {
+          setItems(
+            data.map((d: any) => ({
+              id: d.id,
+              // ถ้ากำลังอัปรูปฝั่ง Grab/LINE MAN ใช้ชื่อ delivery_name แสดงถ้ามี จะได้แยกแยะง่ายขึ้น
+              label:
+                menuImageField === "delivery_image_url"
+                  ? d.delivery_name || d.name
+                  : d.name,
+              category: d.category || "อื่นๆ",
+              hasPhoto: !!d[hasPhotoColumn],
+              photoUrl: d[hasPhotoColumn] || null,
+            }))
+          );
+        }
+      });
     } else {
       fetch("/api/upload-stock-image")
         .then((res) => res.json())
@@ -230,8 +235,8 @@ export default function UploadImageTab() {
           setPreview(null);
           setMessage("");
         }}
-        className="mb-4 w-full rounded-xl border border-forest/15 p-2.5"
-        style={{ textAlign: "center" }}
+        className="mb-1 w-full rounded-xl border border-forest/15"
+        style={{ textAlign: "center", padding: "14px 12px", fontSize: 16, lineHeight: 1.4 }}
       >
         <option value="">-- เลือกรายการ --</option>
         {Object.entries(groupedItems).map(([category, group]) => (
@@ -244,6 +249,9 @@ export default function UploadImageTab() {
           </optgroup>
         ))}
       </select>
+      <p className="mb-4 text-xs text-ink/40">
+        กล่องนี้จัดกึ่งกลางได้เฉพาะตอนปิดอยู่ ตอนกดเปิดดูรายการ เครื่องจะจัดชิดซ้ายให้เองอัตโนมัติ (ข้อจำกัดของระบบมือถือ ปรับจากเว็บไม่ได้)
+      </p>
 
       {/* เอา capture="environment" ออก เพื่อให้ iPhone ขึ้นเมนูให้เลือกได้ ไม่บังคับเข้ากล้อง */}
       <input
