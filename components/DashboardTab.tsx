@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 const CHANNEL_LABELS: Record<string, string> = {
   online_menu: "เมนูออนไลน์",
@@ -108,14 +108,13 @@ export default function DashboardTab() {
 
   return (
     <div>
-      <div className="mb-6 flex gap-3">
+      <div className="mb-4 flex gap-3">
         <Card label="ยอดขายวันนี้" value={`${data.totalSales.toLocaleString()} บาท`} />
         <Card label="จำนวน Order วันนี้" value={`${data.orderCount}`} />
         <Card label="เฉลี่ย/บิล วันนี้" value={`${data.avgOrderValue.toFixed(0)} บาท`} />
       </div>
 
-      <h3 className="mb-2 text-sm font-semibold text-ink">ยอดขายย้อนหลัง 7 วัน</h3>
-      <div className="mb-6">
+      <Section icon="📈" title="ยอดขายย้อนหลัง 7 วัน">
         {trendsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
         {!trendsLoading && !trends && (
           <p className="text-xs text-ink/40">โหลดข้อมูลไม่สำเร็จ</p>
@@ -140,10 +139,9 @@ export default function DashboardTab() {
             />
           </div>
         )}
-      </div>
+      </Section>
 
-      <h3 className="mb-2 text-sm font-semibold text-ink">ยอดขายแยกตามช่องทาง</h3>
-      <div className="mb-6">
+      <Section icon="🛍️" title="ยอดขายแยกตามช่องทาง">
         {Object.keys(data.byChannel).length === 0 && <Empty />}
         {Object.entries(data.byChannel).map(([ch, amount]) => (
           <BarRow
@@ -165,10 +163,9 @@ export default function DashboardTab() {
             />
           </div>
         )}
-      </div>
+      </Section>
 
-      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 วันนี้ (ไม่รวมเครื่องดื่ม)</h3>
-      <div className="mb-6">
+      <Section icon="🔥" title="เมนูขายดี Top 5 วันนี้" subtitle="ไม่รวมหมวดเครื่องดื่ม">
         {data.topItems.length === 0 && <Empty />}
         {data.topItems.map(([name, qty]) => (
           <BarRow key={name} label={name} value={qty} max={maxItemQty} display={`${qty} ชิ้น`} />
@@ -178,10 +175,9 @@ export default function DashboardTab() {
             <ItemPie items={data.topItems} totalQty={data.totalItemQty} />
           </div>
         )}
-      </div>
+      </Section>
 
-      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 สัปดาห์นี้ (ไม่รวมเครื่องดื่ม)</h3>
-      <div className="mb-6">
+      <Section icon="🔥" title="เมนูขายดี Top 5 สัปดาห์นี้" subtitle="ไม่รวมหมวดเครื่องดื่ม">
         {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
         {!topItemsLoading && topItemsData && (
           <>
@@ -193,10 +189,9 @@ export default function DashboardTab() {
             )}
           </>
         )}
-      </div>
+      </Section>
 
-      <h3 className="mb-2 text-sm font-semibold text-ink">เมนูขายดี Top 5 เดือนนี้ (ไม่รวมเครื่องดื่ม)</h3>
-      <div className="mb-6">
+      <Section icon="🔥" title="เมนูขายดี Top 5 เดือนนี้" subtitle="ไม่รวมหมวดเครื่องดื่ม">
         {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
         {!topItemsLoading && topItemsData && (
           <>
@@ -208,20 +203,51 @@ export default function DashboardTab() {
             )}
           </>
         )}
-      </div>
+      </Section>
 
-      <h3 className="mb-1 text-sm font-semibold text-ink">เมนูขายน้อยสุด Top 5 เดือนนี้ (ไม่รวมเครื่องดื่ม)</h3>
-      {!topItemsLoading && topItemsData && topItemsData.zeroSoldCount > 0 && (
-        <p className="mb-2 text-xs text-ink/40">
-          มีเมนูที่ยอดขาย 0 ชิ้นเดือนนี้ทั้งหมด {topItemsData.zeroSoldCount} รายการ
-        </p>
-      )}
-      <div>
+      <Section
+        icon="📉"
+        title="เมนูขายน้อยสุด Top 5 เดือนนี้"
+        subtitle={
+          "ไม่รวมหมวดเครื่องดื่ม" +
+          (!topItemsLoading && topItemsData && topItemsData.zeroSoldCount > 0
+            ? ` • มีเมนูขาย 0 ชิ้นเดือนนี้ทั้งหมด ${topItemsData.zeroSoldCount} รายการ`
+            : "")
+        }
+      >
         {topItemsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
         {!topItemsLoading && topItemsData && (
           <TopItemsList items={topItemsData.bottomMonthItems} unit="ชิ้น" />
         )}
-      </div>
+      </Section>
+    </div>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  subtitle,
+  children,
+}: {
+  icon?: string;
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className="mb-4 rounded-2xl border border-forest/15 bg-white"
+      style={{ padding: 16 }}
+    >
+      <h3 style={{ fontSize: 15, fontWeight: 700, color: "#3A2A18", margin: 0 }}>
+        {icon ? `${icon} ` : ""}
+        {title}
+      </h3>
+      {subtitle && (
+        <p style={{ fontSize: 11, color: "#3A2A18", opacity: 0.45, marginTop: 2 }}>{subtitle}</p>
+      )}
+      <div style={{ marginTop: 12 }}>{children}</div>
     </div>
   );
 }
@@ -241,9 +267,7 @@ function DailyBarChart({ days }: { days: DailySale[] }) {
   const today = days[days.length - 1]?.date;
   return (
     <div>
-      <div
-        className="flex items-end gap-2 rounded-xl border border-forest/15 bg-white px-3 pb-3 pt-4"
-      >
+      <div className="flex items-end gap-2" style={{ paddingTop: 4 }}>
         {days.map((day) => {
           // ใช้พิกเซลตรงๆ แทน % เพื่อกันไม่ให้ค่าน้อยๆ (หรือ 0) เตี้ยจนมองไม่เห็นเป็นแท่ง
           const heightPx = Math.max(6, Math.round((day.total / max) * BAR_AREA_PX));
@@ -385,7 +409,7 @@ function ItemPie({ items, totalQty }: { items: [string, number][]; totalQty: num
   return (
     <div>
       <p style={{ fontSize: 12, color: "#3A2A18", opacity: 0.6, marginBottom: 8 }}>
-        5 เมนูนี้รวมกันคิดเป็น <strong style={{ opacity: 1 }}>{top5Pct.toFixed(0)}%</strong> ของยอดขายชิ้น (ไม่รวมเครื่องดื่ม)
+        5 เมนูนี้รวมกันคิดเป็น <strong style={{ opacity: 1 }}>{top5Pct.toFixed(0)}%</strong> ของยอดขายชิ้นทั้งหมด
       </p>
       <DonutChart segments={segments} />
     </div>
