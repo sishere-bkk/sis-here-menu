@@ -559,12 +559,24 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                           const img = getDeliveryImage(item);
                           return (
                             <div key={item.id} className="flex items-center justify-between rounded-xl border border-forest/10 p-3">
-                              <div className="flex items-center gap-3">
+                              <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                                 {img && (
                                   // ข้อ 7: รูปเฉพาะหน้าคีย์ออเดอร์ แยกจากรูปเมนูออนไลน์
-                                  <img src={img} alt={getEffectiveName(item)} className="h-12 w-12 flex-none rounded-lg object-cover" />
+                                  // เดิมใช้ Tailwind class (h-12 w-12) กำหนดขนาด แต่ class ขนาดรูปไม่ขึ้นหลัง deploy
+                                  // (ปัญหาเดิมของโปรเจกต์นี้) เลยเปลี่ยนมากำหนดขนาดตรงๆ แทนให้ชัวร์
+                                  <img
+                                    src={img}
+                                    alt={getEffectiveName(item)}
+                                    style={{
+                                      height: 48,
+                                      width: 48,
+                                      flexShrink: 0,
+                                      borderRadius: 8,
+                                      objectFit: "cover"
+                                    }}
+                                  />
                                 )}
-                                <div>
+                                <div style={{ minWidth: 0 }}>
                                   <p className="text-sm text-ink">{getEffectiveName(item)}</p>
                                   <p className="text-xs text-[#8B3A2B]">{getEffectivePrice(item).toFixed(0)} บาท</p>
                                 </div>
