@@ -384,30 +384,33 @@ function MenuPageInner() {
           <nav className="sticky top-0 h-[calc(100vh-1px)] w-20 flex-none overflow-y-auto border-r border-forest/10 bg-white py-4 sm:w-32">
             <button
               onClick={() => setSelectedCategory("all")}
-              className={`flex w-full flex-col items-center gap-1 py-3 pl-2 pr-2 text-center text-xs sm:text-sm ${
+              className={`flex w-full flex-col items-center gap-1 py-3 pl-2 pr-2 text-center text-sm font-medium transition sm:text-base ${
                 selectedCategory === "all"
-                  ? "border-l-4 border-turmeric bg-forest/5 font-semibold text-forestDark"
-                  : "text-ink/60"
+                  ? "bg-forestDark font-bold text-sand shadow-md"
+                  : "text-ink/60 hover:bg-forest/5"
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/categories/all.jpg"
                 alt="ทั้งหมด"
-                className="h-10 w-10 rounded-full object-cover sm:h-14 sm:w-14"
+                className={`h-10 w-10 rounded-full object-cover sm:h-14 sm:w-14 ${
+                  selectedCategory === "all" ? "ring-2 ring-turmeric" : ""
+                }`}
               />
               <span>ทั้งหมด</span>
             </button>
             {categories.map(([category]) => {
               const img = categoryImage(category);
+              const isSelected = selectedCategory === category;
               return (
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`flex w-full flex-col items-center gap-1 px-2 py-3 text-center text-xs sm:text-sm ${
-                    selectedCategory === category
-                      ? "border-l-4 border-turmeric bg-forest/5 font-semibold text-forestDark"
-                      : "text-ink/60"
+                  className={`flex w-full flex-col items-center gap-1 px-2 py-3 text-center text-sm font-medium transition sm:text-base ${
+                    isSelected
+                      ? "bg-forestDark font-bold text-sand shadow-md"
+                      : "text-ink/60 hover:bg-forest/5"
                   }`}
                 >
                   {img && (
@@ -415,7 +418,9 @@ function MenuPageInner() {
                     <img
                       src={img}
                       alt={category}
-                      className="h-10 w-10 rounded-full object-cover sm:h-14 sm:w-14"
+                      className={`h-10 w-10 rounded-full object-cover sm:h-14 sm:w-14 ${
+                        isSelected ? "ring-2 ring-turmeric" : ""
+                      }`}
                     />
                   )}
                   <span>{category}</span>
