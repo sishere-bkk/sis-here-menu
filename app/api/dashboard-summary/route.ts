@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
+const DRINKS_CATEGORY = "เครื่องดื่ม";
+
 function getTodayRangeBangkok() {
   const now = new Date();
   const bangkokNow = new Date(
@@ -52,7 +54,17 @@ export async function GET() {
         .from("order_items")
         .select("item_name, quantity, order_id")
         .in("order_id", orderIds)
-    : { data: [] };
+    : { data: [] as { item_name: string; quantity: number; order_id: number }[] };
+
+  // ดึงเมนูมาไว้เช็คหมวดหมู่ (ตัดเครื่องดื่มออกจาก Top 5) — ชื่อในออเดอร์อาจเป็นชื่อออนไลน์หรือชื่อฝั่ง Grab/LINE MAN ก็ได้
+  const { data: menuRows } = await supabaseAdmin
+    .from("menu")
+    .select("name, category, delivery_name");
+  const categoryByName = new Map<string, string | null>();
+  for (const m of menuRows ?? []) {
+    categoryByName.set(m.name, m.category);
+    if (m.delivery_name) categoryByName.set(m.delivery_name, m.category);
+  }
 
   const totalSales = validOrders.reduce((sum, o) => sum + (o.total_amount ?? 0), 0);
   const orderCount = validOrders.length;
@@ -66,11 +78,13 @@ export async function GET() {
 
   const byItem: Record<string, number> = {};
   for (const item of orderItems ?? []) {
+    if (categoryByName.get(item.item_name) === DRINKS_CATEGORY) continue; // ตัดหมวดเครื่องดื่มออก
     byItem[item.item_name] = (byItem[item.item_name] ?? 0) + item.quantity;
   }
   const topItems = Object.entries(byItem)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
+  const totalItemQty = Object.values(byItem).reduce((sum, qty) => sum + qty, 0);
 
   return NextResponse.json({
     totalSales,
@@ -78,5 +92,6 @@ export async function GET() {
     avgOrderValue,
     byChannel,
     topItems,
+    totalItemQty,
   });
 }
