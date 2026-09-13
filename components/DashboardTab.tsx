@@ -15,6 +15,8 @@ type Summary = {
   byChannel: Record<string, number>;
   topItems: [string, number][];
   totalItemQty: number;
+  allTimeByChannel: Record<string, number>;
+  allTimeTotalSales: number;
 };
 
 type DailySale = { date: string; label: string; total: number };
@@ -28,6 +30,8 @@ type Trends = {
   lastMonthSamePeriodTotal: number;
   monthChangePct: number | null;
   monthCompareDayCount: number;
+  weekByChannel: Record<string, number>;
+  monthByChannel: Record<string, number>;
 };
 
 type TopItemsData = {
@@ -141,21 +145,21 @@ export default function DashboardTab() {
         )}
       </Section>
 
-      <Section icon="🛍️" title="ยอดขายแยกตามช่องทาง">
-        {Object.keys(data.byChannel).length === 0 && <Empty />}
-        {Object.entries(data.byChannel).map(([ch, amount]) => (
+      <Section icon="🛍️" title="ยอดขายแยกตามช่องทาง" subtitle="ยอดสะสมทั้งหมด">
+        {Object.keys(data.allTimeByChannel).length === 0 && <Empty />}
+        {Object.entries(data.allTimeByChannel).map(([ch, amount]) => (
           <BarRow
             key={ch}
             label={CHANNEL_LABELS[ch] ?? ch}
             value={amount}
-            max={data.totalSales || 1}
+            max={data.allTimeTotalSales || 1}
             display={`${amount.toLocaleString()} บาท`}
           />
         ))}
-        {Object.keys(data.byChannel).length > 0 && (
+        {Object.keys(data.allTimeByChannel).length > 0 && (
           <div className="mt-3">
             <DonutChart
-              segments={Object.entries(data.byChannel).map(([ch, amount]) => ({
+              segments={Object.entries(data.allTimeByChannel).map(([ch, amount]) => ({
                 label: CHANNEL_LABELS[ch] ?? ch,
                 value: amount,
                 color: CHANNEL_COLORS[ch] ?? OTHERS_COLOR,
@@ -163,6 +167,38 @@ export default function DashboardTab() {
             />
           </div>
         )}
+      </Section>
+
+      <Section icon="🛍️" title="ยอดขายแยกตามช่องทาง สัปดาห์นี้">
+        {trendsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
+        {!trendsLoading && trends && Object.keys(trends.weekByChannel).length === 0 && <Empty />}
+        {!trendsLoading &&
+          trends &&
+          Object.entries(trends.weekByChannel).map(([ch, amount]) => (
+            <BarRow
+              key={ch}
+              label={CHANNEL_LABELS[ch] ?? ch}
+              value={amount}
+              max={trends.thisWeekTotal || 1}
+              display={`${amount.toLocaleString()} บาท`}
+            />
+          ))}
+      </Section>
+
+      <Section icon="🛍️" title="ยอดขายแยกตามช่องทาง เดือนนี้">
+        {trendsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
+        {!trendsLoading && trends && Object.keys(trends.monthByChannel).length === 0 && <Empty />}
+        {!trendsLoading &&
+          trends &&
+          Object.entries(trends.monthByChannel).map(([ch, amount]) => (
+            <BarRow
+              key={ch}
+              label={CHANNEL_LABELS[ch] ?? ch}
+              value={amount}
+              max={trends.thisMonthTotal || 1}
+              display={`${amount.toLocaleString()} บาท`}
+            />
+          ))}
       </Section>
 
       <Section icon="🔥" title="เมนูขายดี Top 5 วันนี้" subtitle="ไม่รวมหมวดเครื่องดื่ม">
