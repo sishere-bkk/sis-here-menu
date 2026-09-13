@@ -48,6 +48,18 @@ function categoryImage(category: string) {
   return CATEGORY_IMAGES[normalized] ?? null;
 }
 
+// แยกชื่อเมนูตามช่องว่าง แล้ว "ห้ามตัดแยก" ภายในแต่ละก้อนจริงๆ
+// ทำให้ตัดขึ้นบรรทัดใหม่ได้เฉพาะตรงช่องว่างที่มีจริงเท่านั้น ไม่ตัดกลางคำอีกต่อไป
+function renderWrappableThaiText(text: string) {
+  const words = text.split(" ");
+  return words.map((word, i) => (
+    <span key={i}>
+      <span style={{ whiteSpace: "nowrap" }}>{word}</span>
+      {i < words.length - 1 ? " " : ""}
+    </span>
+  ));
+}
+
 function MenuPageInner() {
   const searchParams = useSearchParams();
   const tableParam = searchParams.get("table");
@@ -387,10 +399,10 @@ function MenuPageInner() {
 
       {!loading && categories.length > 0 && (
         <div className="flex">
-          <nav className="sticky top-0 h-[calc(100vh-1px)] w-20 flex-none overflow-y-auto border-r border-forest/10 bg-white py-4 sm:w-32">
+          <nav className="sticky top-0 flex h-[calc(100vh-1px)] w-16 flex-none flex-col overflow-y-auto border-r border-forest/10 bg-white py-2 sm:w-28">
             <button
               onClick={() => setSelectedCategory("all")}
-              className={`flex w-full flex-col items-center gap-1 py-3 pl-2 pr-2 text-center text-sm font-medium transition sm:text-base ${
+              className={`flex w-full flex-col items-center justify-center gap-1 px-1 py-3 text-center text-[11px] font-medium leading-tight transition sm:text-sm ${
                 selectedCategory === "all"
                   ? "bg-forestDark font-bold text-sand shadow-md"
                   : "text-ink/60 hover:bg-forest/5"
@@ -400,7 +412,7 @@ function MenuPageInner() {
               <img
                 src="/categories/all.jpg"
                 alt="ทั้งหมด"
-                className={`h-10 w-10 rounded-full object-cover sm:h-14 sm:w-14 ${
+                className={`h-9 w-9 flex-none rounded-full object-cover sm:h-12 sm:w-12 ${
                   selectedCategory === "all" ? "ring-2 ring-turmeric" : ""
                 }`}
               />
@@ -413,22 +425,24 @@ function MenuPageInner() {
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`flex w-full flex-col items-center gap-1 px-2 py-3 text-center text-sm font-medium transition sm:text-base ${
+                  className={`flex w-full flex-col items-center justify-center gap-1 px-1 py-3 text-center text-[11px] font-medium leading-tight transition sm:text-sm ${
                     isSelected
                       ? "bg-forestDark font-bold text-sand shadow-md"
                       : "text-ink/60 hover:bg-forest/5"
                   }`}
                 >
-                  {img && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={img}
-                      alt={category}
-                      className={`h-10 w-10 rounded-full object-cover sm:h-14 sm:w-14 ${
-                        isSelected ? "ring-2 ring-turmeric" : ""
-                      }`}
-                    />
-                  )}
+                  <div className="flex h-9 w-9 flex-none items-center justify-center sm:h-12 sm:w-12">
+                    {img && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={img}
+                        alt={category}
+                        className={`h-9 w-9 rounded-full object-cover sm:h-12 sm:w-12 ${
+                          isSelected ? "ring-2 ring-turmeric" : ""
+                        }`}
+                      />
+                    )}
+                  </div>
                   <span>{category}</span>
                 </button>
               );
@@ -458,14 +472,16 @@ function MenuPageInner() {
                         <div className="h-20 w-20 flex-none rounded-xl bg-sand" />
                       )}
                       <div className="flex-1">
-                        <p className="font-medium text-ink">{item.name}</p>
+                        <p className="font-medium text-ink">
+                          {renderWrappableThaiText(item.name)}
+                        </p>
                         <p className="mt-1 text-sm font-semibold text-[#8B3A2B]">
                           {item.price.toFixed(0)} บาท
                         </p>
                       </div>
                       <button
                         onClick={() => openItem(item)}
-                        className="rounded-full bg-forest px-4 py-2 text-sm font-medium text-sand transition hover:bg-forestDark"
+                        className="flex-none rounded-full bg-forest px-4 py-2 text-sm font-medium text-sand transition hover:bg-forestDark"
                       >
                         เพิ่ม
                       </button>
@@ -494,7 +510,7 @@ function MenuPageInner() {
             <div className="flex-1 overflow-y-auto p-6">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-forestDark">
-                  {optionItem.name}
+                  {renderWrappableThaiText(optionItem.name)}
                 </h3>
                 <button
                   onClick={() => setOptionItem(null)}
@@ -596,7 +612,9 @@ function MenuPageInner() {
                     className="flex items-center justify-between"
                   >
                     <div>
-                      <p className="font-medium text-ink">{line.item.name}</p>
+                      <p className="font-medium text-ink">
+                        {renderWrappableThaiText(line.item.name)}
+                      </p>
                       {optionText && (
                         <p className="text-xs text-ink/40">{optionText}</p>
                       )}
