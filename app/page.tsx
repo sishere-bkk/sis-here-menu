@@ -35,10 +35,15 @@ const CATEGORY_IMAGES: Record<string, string> = {
   "สลัดและของทานเล่น": "/categories/salad.jpg"
 };
 
-// ชื่อเมนูที่อยากบังคับให้ขึ้น 2 บรรทัดตรงจุดที่กำหนด (นอกนั้นทุกชื่อจะเป็นบรรทัดเดียวเสมอ)
-// ถ้าอยากเพิ่มชื่ออื่นในอนาคต ใส่ path ตรงนี้: "ชื่อเต็มของเมนู" แล้วกำหนดว่าจะตัดตรงคำไหน
+// หมวดหมู่ที่อยากบังคับให้ขึ้นบรรทัดใหม่ตรงจุดที่กำหนดพอดี (นอกนั้นจะปล่อยให้ตัดตรงช่องว่างเองตามธรรมชาติ)
+const CATEGORY_LINE_BREAKS: Record<string, [string, string]> = {
+  "สลัดและของทานเล่น": ["สลัดและ", "ของทานเล่น"],
+  "สลัด และของทานเล่น": ["สลัดและ", "ของทานเล่น"]
+};
+
+// ชื่อเมนูที่อยากบังคับให้ขึ้น 2 บรรทัดตรงจุดที่กำหนด (นอกนั้นทุกชื่อจะตัดตรงช่องว่างเองตามธรรมชาติ)
+// ค่าตัวเลขคือ "จะตัดหลังคำที่เท่าไหร่" (นับจากคำที่เว้นวรรคในชื่อเมนู)
 const TWO_LINE_ITEM_NAMES: Record<string, number> = {
-  // ค่าตัวเลขคือ "จะตัดหลังคำที่เท่าไหร่" (นับจากคำที่เว้นวรรคในชื่อเมนู)
   "ทงคัตสึ ข้าวคลุก กะเพรากรอบ": 2
 };
 
@@ -55,8 +60,20 @@ function categoryImage(category: string) {
   return CATEGORY_IMAGES[normalized] ?? null;
 }
 
-// ชื่อเมนู: ปกติแสดงบรรทัดเดียวเสมอ (ไม่ตัดขึ้นบรรทัดใหม่)
-// ยกเว้นชื่อที่อยู่ใน TWO_LINE_ITEM_NAMES จะบังคับขึ้นบรรทัดใหม่ตรงจุดที่กำหนด
+// ตัดข้อความตามช่องว่างเท่านั้น (ห้ามตัดกลางคำ) — ปล่อยให้ขึ้นบรรทัดใหม่เองตามพื้นที่ที่มี
+function renderSafeWrapText(text: string) {
+  const normalized = text.normalize("NFC").trim();
+  const words = normalized.split(" ");
+  return words.map((word, i) => (
+    <span key={i} style={{ whiteSpace: "nowrap" }}>
+      {word}
+      {i < words.length - 1 ? " " : ""}
+    </span>
+  ));
+}
+
+// ชื่อเมนู: ปกติตัดตรงช่องว่างเองตามธรรมชาติ (ไม่ตัดกลางคำ)
+// ยกเว้นชื่อที่อยู่ใน TWO_LINE_ITEM_NAMES จะบังคับขึ้นบรรทัดใหม่ตรงจุดที่กำหนดเป๊ะๆ
 function renderItemName(name: string) {
   const normalized = name.normalize("NFC").trim();
   const breakAfterWord = TWO_LINE_ITEM_NAMES[normalized];
@@ -74,7 +91,26 @@ function renderItemName(name: string) {
     );
   }
 
-  return <span style={{ whiteSpace: "nowrap" }}>{normalized}</span>;
+  return renderSafeWrapText(normalized);
+}
+
+// ชื่อหมวดหมู่ sidebar: ถ้าอยู่ใน CATEGORY_LINE_BREAKS จะบังคับ 2 บรรทัดพอดี
+// นอกนั้นตัดตรงช่องว่างเองตามธรรมชาติ (ไม่ตัดกลางคำ)
+function renderCategoryLabel(category: string) {
+  const normalized = category.normalize("NFC").trim();
+  const forced = CATEGORY_LINE_BREAKS[normalized];
+
+  if (forced) {
+    return (
+      <>
+        <span style={{ whiteSpace: "nowrap" }}>{forced[0]}</span>
+        <br />
+        <span style={{ whiteSpace: "nowrap" }}>{forced[1]}</span>
+      </>
+    );
+  }
+
+  return renderSafeWrapText(normalized);
 }
 
 function MenuPageInner() {
@@ -419,7 +455,7 @@ function MenuPageInner() {
           <nav className="sticky top-0 h-[calc(100vh-1px)] w-20 flex-none overflow-y-auto border-r border-forest/10 bg-white py-4 sm:w-32">
             <button
               onClick={() => setSelectedCategory("all")}
-              className={`flex w-full flex-col items-center gap-1 py-3 pl-2 pr-2 text-center text-sm font-medium transition sm:text-base ${
+              className={`flex w-full flex-col items-center gap-1 py-3 pl-2 pr-2 text-center text-sm font-medium leading-tight transition sm:text-base ${
                 selectedCategory === "all"
                   ? "bg-forestDark font-bold text-sand shadow-md"
                   : "text-ink/60 hover:bg-forest/5"
@@ -442,7 +478,7 @@ function MenuPageInner() {
                 <button
                   key={category}
                   onClick={() => setSelectedCategory(category)}
-                  className={`flex w-full flex-col items-center gap-1 px-2 py-3 text-center text-sm font-medium transition sm:text-base ${
+                  className={`flex w-full flex-col items-center gap-1 px-2 py-3 text-center text-sm font-medium leading-tight transition sm:text-base ${
                     isSelected
                       ? "bg-forestDark font-bold text-sand shadow-md"
                       : "text-ink/60 hover:bg-forest/5"
@@ -458,7 +494,7 @@ function MenuPageInner() {
                       }`}
                     />
                   )}
-                  <span>{category}</span>
+                  <span>{renderCategoryLabel(category)}</span>
                 </button>
               );
             })}
@@ -474,32 +510,34 @@ function MenuPageInner() {
                   {categoryItems.map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-4 rounded-2xl border border-forest/10 bg-white p-3"
+                      className="flex items-stretch gap-4 rounded-2xl border border-forest/10 bg-white p-3"
                     >
                       {item.image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={item.image_url}
                           alt={item.name}
-                          className="h-20 w-20 flex-none rounded-xl object-cover"
+                          className="h-20 w-20 flex-none self-start rounded-xl object-cover"
                         />
                       ) : (
-                        <div className="h-20 w-20 flex-none rounded-xl bg-sand" />
+                        <div className="h-20 w-20 flex-none self-start rounded-xl bg-sand" />
                       )}
-                      <div className="min-w-0 flex-1">
-                        <p className="font-medium text-ink">
+                      <div className="flex min-w-0 flex-1 flex-col justify-center">
+                        <p className="font-medium leading-snug text-ink">
                           {renderItemName(item.name)}
                         </p>
                         <p className="mt-1 text-sm font-semibold text-[#8B3A2B]">
                           {item.price.toFixed(0)} บาท
                         </p>
                       </div>
-                      <button
-                        onClick={() => openItem(item)}
-                        className="flex-none self-center rounded-full bg-forest px-4 py-2 text-sm font-medium text-sand transition hover:bg-forestDark"
-                      >
-                        เพิ่ม
-                      </button>
+                      <div className="flex flex-none flex-col justify-end">
+                        <button
+                          onClick={() => openItem(item)}
+                          className="rounded-full bg-forest px-4 py-2 text-sm font-medium text-sand transition hover:bg-forestDark"
+                        >
+                          เพิ่ม
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -524,7 +562,7 @@ function MenuPageInner() {
           <div className="flex max-h-[85vh] w-full flex-col rounded-t-3xl bg-white">
             <div className="flex-1 overflow-y-auto p-6">
               <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-forestDark">
+                <h3 className="text-lg font-semibold leading-snug text-forestDark">
                   {renderItemName(optionItem.name)}
                 </h3>
                 <button
@@ -627,7 +665,7 @@ function MenuPageInner() {
                     className="flex items-center justify-between"
                   >
                     <div>
-                      <p className="font-medium text-ink">
+                      <p className="font-medium leading-snug text-ink">
                         {renderItemName(line.item.name)}
                       </p>
                       {optionText && (
