@@ -44,7 +44,7 @@ export default function UploadImageTab() {
         if (data) {
           setItems(
             data.map((d: any) => ({
-              id: d.id,
+              id: String(d.id),
               // ถ้ากำลังอัปรูปฝั่ง Grab/LINE MAN ใช้ชื่อ delivery_name แสดงถ้ามี จะได้แยกแยะง่ายขึ้น
               label:
                 menuImageField === "delivery_image_url"
@@ -64,7 +64,7 @@ export default function UploadImageTab() {
           if (json.items) {
             setItems(
               json.items.map((d: any) => ({
-                id: d.id,
+                id: String(d.id),
                 label: d.name,
                 category: d.category || "อื่นๆ",
                 hasPhoto: !!d.photo_url,
@@ -126,12 +126,16 @@ export default function UploadImageTab() {
 
       const res = await fetch(endpoint, { method: "POST", body: formData });
       if (!res.ok) throw new Error("upload failed");
+      const resData = await res.json().catch(() => null);
+      const uploadedUrl: string | undefined = resData?.url;
 
       setStatus("done");
       setMessage("อัปโหลดรูปสำเร็จแล้ว");
       setItems((prev) =>
         prev.map((it) =>
-          it.id === selectedId ? { ...it, hasPhoto: true, photoUrl: it.photoUrl } : it
+          it.id === selectedId
+            ? { ...it, hasPhoto: true, photoUrl: uploadedUrl ?? it.photoUrl }
+            : it
         )
       );
     } catch (err) {
