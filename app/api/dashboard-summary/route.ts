@@ -76,6 +76,22 @@ export async function GET() {
     byChannel[ch] = (byChannel[ch] ?? 0) + (o.total_amount ?? 0);
   }
 
+  // ยอดขายแยกช่องทางแบบสะสมทั้งหมด (ไม่จำกัดแค่วันนี้)
+  const { data: allTimeOrders, error: allTimeError } = await supabaseAdmin
+    .from("orders")
+    .select("channel, total_amount, status")
+    .eq("status", "accepted");
+  if (allTimeError) {
+    return NextResponse.json({ error: allTimeError.message }, { status: 500 });
+  }
+  const allTimeByChannel: Record<string, number> = {};
+  let allTimeTotalSales = 0;
+  for (const o of allTimeOrders ?? []) {
+    const ch = o.channel ?? "online_menu";
+    allTimeByChannel[ch] = (allTimeByChannel[ch] ?? 0) + (o.total_amount ?? 0);
+    allTimeTotalSales += o.total_amount ?? 0;
+  }
+
   const byItem: Record<string, number> = {};
   for (const item of orderItems ?? []) {
     if (categoryByName.get(item.item_name) === DRINKS_CATEGORY) continue; // ตัดหมวดเครื่องดื่มออก
@@ -93,5 +109,7 @@ export async function GET() {
     byChannel,
     topItems,
     totalItemQty,
+    allTimeByChannel,
+    allTimeTotalSales,
   });
 }
