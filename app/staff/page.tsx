@@ -123,15 +123,28 @@ export default function StaffPage() {
   const [audioUnlocked, setAudioUnlocked] = useState(false);
   // กันจอดับเองอัตโนมัติระหว่างเปิดหน้านี้ค้างไว้ (ช่วยให้เสียงเตือนมีโอกาสทำงานต่อเนื่องมากขึ้น)
   const wakeLockRef = useRef<any>(null);
+  // "unsupported" = เครื่อง/เบราว์เซอร์นี้ไม่รองรับฟีเจอร์กันจอดับเลย (ต้องไปตั้งค่าที่ตัวเครื่องแทน)
+  const [wakeLockStatus, setWakeLockStatus] = useState<"unknown" | "active" | "unsupported">("unknown");
 
   async function requestWakeLock() {
     try {
       const nav = navigator as any;
-      if (nav.wakeLock) {
-        wakeLockRef.current = await nav.wakeLock.request("screen");
+      if (!nav.wakeLock) {
+        setWakeLockStatus("unsupported");
+        return;
       }
+      const sentinel = await nav.wakeLock.request("screen");
+      wakeLockRef.current = sentinel;
+      setWakeLockStatus("active");
+      // บางเครื่อง (พบมากบน Android บางรุ่น) ระบบจะยึดคืนสิทธิ์กันจอดับเองโดยไม่แจ้งล่วงหน้า
+      // ต้องคอยฟัง event นี้ไว้ แล้วรีบขอใหม่ทันที ไม่งั้นจอจะดับได้ทั้งที่โค้ดคิดว่ายังกันอยู่
+      sentinel.addEventListener?.("release", () => {
+        setWakeLockStatus("unknown");
+        if (document.visibilityState === "visible") requestWakeLock();
+      });
     } catch (err) {
-      // เครื่อง/เบราว์เซอร์บางรุ่นไม่รองรับ ไม่ทำให้หน้าอื่นพัง
+      // เครื่อง/เบราว์เซอร์บางรุ่นไม่รองรับ หรือถูกปฏิเสธสิทธิ์ ไม่ทำให้หน้าอื่นพัง
+      setWakeLockStatus("unknown");
     }
   }
 
@@ -142,8 +155,14 @@ export default function StaffPage() {
       if (document.visibilityState === "visible") requestWakeLock();
     }
     document.addEventListener("visibilitychange", handleVisibilityChange);
+    // เผื่อไว้อีกชั้น: บางเครื่อง Android ปล่อยสิทธิ์คืนแบบเงียบๆ โดยไม่ยิง event ใดๆ เลย
+    // เลยตั้งเช็ค+ขอใหม่ซ้ำเป็นระยะ กันหลุดแบบไม่รู้ตัว
+    const safetyInterval = setInterval(() => {
+      if (document.visibilityState === "visible") requestWakeLock();
+    }, 60000);
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearInterval(safetyInterval);
       wakeLockRef.current?.release?.().catch(() => {});
     };
   }, []);
@@ -505,11 +524,19 @@ export default function StaffPage() {
 
         {tab === "orders" && (
           <>
-            <ul className="mb-4 list-disc space-y-0.5 pl-4 text-xs text-ink/50">
+            <ul className="mb-1 list-disc space-y-0.5 pl-4 text-xs text-ink/50">
               <li>เปิดหน้านี้ค้างไว้บนคอม/แท็บเล็ตที่ต่อเครื่องพิมพ์ (อัปเดตเองทุก 5 วิ)</li>
               <li>ออเดอร์เมนูออนไลน์ใหม่ = มีเสียงเตือนดังวน จนกว่าจะพิมพ์บิล/รับเงิน/ยกเลิก</li>
               <li>แตะปุ่ม 🔕 มุมล่างขวา ตอนเปิดหน้าครั้งแรกของวัน เพื่อเปิดเสียง</li>
             </ul>
+            <p className="mb-4 text-xs text-ink/30">
+              กันจอดับ:{" "}
+              {wakeLockStatus === "active"
+                ? "เปิดอยู่"
+                : wakeLockStatus === "unsupported"
+                ? "เครื่องนี้ไม่รองรับ (ไปตั้งค่า \"จอไม่ดับตอนชาร์จ\" ที่ตัวเครื่องแทน)"
+                : "กำลังเช็ค..."}
+            </p>
 
             <div className="mb-4 flex gap-1 rounded-2xl bg-forest/10 p-1">
               <button
