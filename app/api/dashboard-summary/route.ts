@@ -37,7 +37,7 @@ export async function GET() {
 
   const { data: orders, error: ordersError } = await supabaseAdmin
     .from("orders")
-    .select("id, channel, total_amount, status")
+    .select("id, channel, total_amount, status, created_at, platform_order_no, order_type, table_number")
     .gte("created_at", startUtc)
     .lte("created_at", endUtc);
 
@@ -102,6 +102,19 @@ export async function GET() {
     .slice(0, 5);
   const totalItemQty = Object.values(byItem).reduce((sum, qty) => sum + qty, 0);
 
+  // รายละเอียดออเดอร์วันนี้ทีละบิล ให้เจ้าของร้านกดดูได้ว่ายอดรวมมาจากบิลไหนบ้าง (เรียงเวลาล่าสุดก่อน)
+  const orderDetails = validOrders
+    .map((o) => ({
+      id: o.id,
+      channel: o.channel ?? "online_menu",
+      totalAmount: o.total_amount ?? 0,
+      createdAt: o.created_at,
+      platformOrderNo: o.platform_order_no ?? null,
+      orderType: o.order_type ?? null,
+      tableNumber: o.table_number ?? null,
+    }))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
   return NextResponse.json({
     totalSales,
     orderCount,
@@ -111,5 +124,6 @@ export async function GET() {
     totalItemQty,
     allTimeByChannel,
     allTimeTotalSales,
+    orderDetails,
   });
 }
