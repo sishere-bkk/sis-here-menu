@@ -22,6 +22,12 @@ function todayStr() {
   return d.toISOString().slice(0, 10);
 }
 
+// แสดงตัวเลขดิบตามจริง ไม่ปัดเศษ (เดิมใช้ .toFixed(0) ทำให้เศษสตางค์หายไปจากที่เห็นบนจอ)
+// ยังคั่นหลักพันด้วย comma ให้อ่านง่ายเหมือนเดิม
+function formatRaw(value: number) {
+  return value.toLocaleString("en-US", { maximumFractionDigits: 6 });
+}
+
 export default function ReconcileTab() {
   const [channel, setChannel] = useState<"grab" | "lineman" | "thaichuaythai">("grab");
 
@@ -94,7 +100,7 @@ export default function ReconcileTab() {
         setMessage("บันทึกไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
         return;
       }
-      setMessage(`กระทบยอดสำเร็จ ${data.ordersUpdated} ออเดอร์ (ค่าคอมมิชชั่นรวม ${data.totalFee.toFixed(0)} บาท)`);
+      setMessage(`กระทบยอดสำเร็จ ${data.ordersUpdated} ออเดอร์ (ค่าคอมมิชชั่นรวม ${formatRaw(data.totalFee)} บาท)`);
       setOrders(null);
       setActualReceived("");
     } catch {
@@ -274,7 +280,7 @@ export default function ReconcileTab() {
                 <p className="mb-2 text-sm text-ink/60">พบ {orders.length} ออเดอร์ ยังไม่กระทบยอด</p>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-ink/60">ยอดที่คีย์ไว้ทั้งหมด</span>
-                  <span className="text-lg font-semibold text-forestDark">{keyedTotal.toFixed(0)} บาท</span>
+                  <span className="text-lg font-semibold text-forestDark">{formatRaw(keyedTotal)} บาท</span>
                 </div>
               </div>
 
@@ -289,7 +295,7 @@ export default function ReconcileTab() {
 
               {actualReceived && (
                 <p className="mb-4 text-sm text-ink/60">
-                  ส่วนต่าง (ค่าคอมมิชชั่นรวมโดยประมาณ): <span className="font-semibold text-red-600">{diff.toFixed(0)} บาท</span>
+                  ส่วนต่าง (ค่าคอมมิชชั่นรวมโดยประมาณ): <span className="font-semibold text-red-600">{formatRaw(diff)} บาท</span>
                 </p>
               )}
 
@@ -370,7 +376,7 @@ export default function ReconcileTab() {
           <div className="mb-3 rounded-xl border border-forest/10 bg-white p-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-ink/60">ยอดสะสมทั้งหมดที่เคยได้รับ</span>
-              <span className="text-lg font-semibold text-forestDark">{tctTotal.toFixed(0)} บาท</span>
+              <span className="text-lg font-semibold text-forestDark">{formatRaw(tctTotal)} บาท</span>
             </div>
           </div>
 
@@ -388,7 +394,7 @@ export default function ReconcileTab() {
                     <p className="text-sm text-ink">{e.entry_date}</p>
                     {e.note && <p className="text-xs text-ink/50">{e.note}</p>}
                   </div>
-                  <p className="font-semibold text-[#8B3A2B]">{Number(e.amount).toFixed(0)} บาท</p>
+                  <p className="font-semibold text-[#8B3A2B]">{formatRaw(Number(e.amount))} บาท</p>
                 </div>
               ))}
             </div>
