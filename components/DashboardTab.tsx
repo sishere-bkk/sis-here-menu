@@ -17,6 +17,15 @@ type Summary = {
   totalItemQty: number;
   allTimeByChannel: Record<string, number>;
   allTimeTotalSales: number;
+  orderDetails: {
+    id: number;
+    channel: string;
+    totalAmount: number;
+    createdAt: string;
+    platformOrderNo: string | null;
+    orderType: string | null;
+    tableNumber: string | null;
+  }[];
 };
 
 type DailySale = { date: string; label: string; total: number };
@@ -61,6 +70,7 @@ export default function DashboardTab() {
   const [trendsLoading, setTrendsLoading] = useState(true);
   const [topItemsData, setTopItemsData] = useState<TopItemsData | null>(null);
   const [topItemsLoading, setTopItemsLoading] = useState(true);
+  const [showOrderDetail, setShowOrderDetail] = useState(false);
 
   useEffect(() => {
     function load() {
@@ -111,10 +121,17 @@ export default function DashboardTab() {
   return (
     <div>
       <div className="mb-4 flex gap-3">
-        <Card label="ยอดขายวันนี้" value={`${data.totalSales.toLocaleString()} บาท`} />
-        <Card label="Order วันนี้" value={`${data.orderCount}`} />
-        <Card label="เฉลี่ย/บิล วันนี้" value={`${data.avgOrderValue.toFixed(0)} บาท`} />
+        <Card label="ยอดขายวันนี้" value={`${data.totalSales.toLocaleString()} บาท`} onClick={() => setShowOrderDetail(true)} />
+        <Card label="Order วันนี้" value={`${data.orderCount}`} onClick={() => setShowOrderDetail(true)} />
+        <Card label="เฉลี่ย/บิล วันนี้" value={`${data.avgOrderValue.toFixed(0)} บาท`} onClick={() => setShowOrderDetail(true)} />
       </div>
+      <p style={{ marginTop: -8, marginBottom: 16, fontSize: 11, color: "#3A2A18", opacity: 0.4 }}>
+        แตะกล่องด้านบนเพื่อดูว่ายอดวันนี้มาจากบิลไหนบ้าง
+      </p>
+
+      {showOrderDetail && (
+        <OrderDetailModal data={data} onClose={() => setShowOrderDetail(false)} />
+      )}
 
       <Section icon="📈" title="ยอดขายย้อนหลัง 7 วัน">
         {trendsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
@@ -274,11 +291,120 @@ function Section({
   );
 }
 
-function Card({ label, value }: { label: string; value: string }) {
+function Card({ label, value, onClick }: { label: string; value: string; onClick?: () => void }) {
   return (
-    <div className="flex-1 rounded-xl bg-forest/10 p-4">
+    <div
+      onClick={onClick}
+      className="flex-1 rounded-xl bg-forest/10 p-4"
+      style={onClick ? { cursor: "pointer" } : undefined}
+    >
       <div className="mb-1 text-xs text-ink/60">{label}</div>
       <div className="text-lg font-bold text-ink">{value}</div>
+    </div>
+  );
+}
+
+function orderSourceLabel(o: Summary["orderDetails"][number]): string {
+  if (o.channel === "grab") return `Grab${o.platformOrderNo ? " · " + o.platformOrderNo : ""}`;
+  if (o.channel === "lineman") return `LINE MAN${o.platformOrderNo ? " · " + o.platformOrderNo : ""}`;
+  if (o.orderType === "table") return `โต๊ะ ${o.tableNumber ?? "-"}`;
+  if (o.orderType === "takeaway") return "กลับบ้าน (เมนูออนไลน์)";
+  return "เมนูออนไลน์";
+}
+
+function formatTimeBangkok(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Bangkok",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(new Date(iso));
+}
+
+// ป๊อปอัพไล่ดูรายบิลของวันนี้ เปิดจากการแตะกล่องยอดขาย/Order ด้านบนสุด ไว้ตรวจสอบว่าตัวเลขสรุปถูกต้องไหม
+function OrderDetailModal({ data, onClose }: { data: Summary; onClose: () => void }) {
+  const sumCheck = data.orderDetails.reduce((s, o) => s + o.totalAmount, 0);
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 60,
+        background: "rgba(58,42,24,0.45)",
+        display: "flex",
+        alignItems: "flex-end"
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%",
+          maxHeight: "80vh",
+          overflowY: "auto",
+          background: "#fff",
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          padding: 20
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 700, color: "#3A2A18", margin: 0 }}>
+            บิลวันนี้ทั้งหมด ({data.orderDetails.length} บิล)
+          </h3>
+          <button onClick={onClose} style={{ fontSize: 13, color: "#3A2A18", opacity: 0.5, border: "none", background: "none" }}>
+            ปิด
+          </button>
+        </div>
+        <p style={{ fontSize: 12, color: "#3A2A18", opacity: 0.45, marginBottom: 14 }}>
+          นับเฉพาะบิลที่กด &quot;รับเงินแล้ว&quot; เท่านั้น — เรียงจากล่าสุดไปเก่าสุด
+        </p>
+
+        {data.orderDetails.length === 0 && (
+          <p style={{ fontSize: 13, color: "#3A2A18", opacity: 0.4 }}>ยังไม่มีบิลที่รับเงินแล้ววันนี้</p>
+        )}
+
+        {data.orderDetails.map((o) => (
+          <div
+            key={o.id}
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: "10px 0",
+              borderBottom: "1px solid #EFE9DA"
+            }}
+          >
+            <div style={{ minWidth: 0 }}>
+              <p style={{ fontSize: 13, color: "#3A2A18", margin: 0 }}>
+                #{o.id} · {orderSourceLabel(o)}
+              </p>
+              <p style={{ fontSize: 11, color: "#3A2A18", opacity: 0.45, margin: 0 }}>
+                {formatTimeBangkok(o.createdAt)} น.
+              </p>
+            </div>
+            <p style={{ fontSize: 14, fontWeight: 700, color: "#8B3A2B", margin: 0, flexShrink: 0 }}>
+              {o.totalAmount.toLocaleString()} บาท
+            </p>
+          </div>
+        ))}
+
+        {data.orderDetails.length > 0 && (
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              paddingTop: 12,
+              marginTop: 4
+            }}
+          >
+            <p style={{ fontSize: 13, fontWeight: 700, color: "#3A2A18" }}>รวม</p>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "#3A2A18" }}>
+              {sumCheck.toLocaleString()} บาท
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
