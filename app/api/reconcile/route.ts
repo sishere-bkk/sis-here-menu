@@ -21,12 +21,14 @@ function bangkokRangeToUtc(fromDateStr: string, toDateStr: string) {
   };
 }
 
-// GET: คืนออเดอร์ของช่องทาง+ช่วงวันที่ (ปฏิทินกรุงเทพ, รวมทั้ง from และ to) ที่ยังไม่กระทบยอด
+// GET: คืนออเดอร์ของช่องทาง+ช่วงวันที่ (ปฏิทินกรุงเทพ, รวมทั้ง from และ to)
+// mode=unreconciled (ค่าเริ่มต้น) = ยังไม่กระทบยอด, mode=reconciled = ดูของที่กระทบยอดไปแล้ว (ไว้เช็คก่อนยกเลิก)
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const channel = searchParams.get("channel"); // "grab" | "lineman"
   const from = searchParams.get("from"); // YYYY-MM-DD (รวมวันนี้)
   const to = searchParams.get("to"); // YYYY-MM-DD (รวมวันนี้)
+  const mode = searchParams.get("mode") === "reconciled" ? "reconciled" : "unreconciled";
 
   if (!channel || !from || !to) {
     return NextResponse.json({ error: "missing channel/from/to" }, { status: 400 });
@@ -37,9 +39,9 @@ export async function GET(request: NextRequest) {
   const admin = getAdmin();
   const { data, error } = await admin
     .from("orders")
-    .select("id, created_at, total_amount, platform_order_no, status")
+    .select("id, created_at, total_amount, platform_order_no, status, fee")
     .eq("channel", channel)
-    .eq("reconciled", false)
+    .eq("reconciled", mode === "reconciled")
     .neq("status", "cancelled")
     .gte("created_at", startIso)
     .lt("created_at", endIso)
@@ -50,8 +52,9 @@ export async function GET(request: NextRequest) {
   }
 
   const keyedTotal = (data ?? []).reduce((sum, o) => sum + Number(o.total_amount ?? 0), 0);
+  const feeTotal = (data ?? []).reduce((sum, o) => sum + Number(o.fee ?? 0), 0);
 
-  return NextResponse.json({ orders: data, keyedTotal });
+  return NextResponse.json({ orders: data, keyedTotal, feeTotal });
 }
 
 // POST: กรอกยอดรวมที่ได้รับจริงของช่วงที่เลือก (ปฏิทินกรุงเทพ, รวมทั้ง from และ to)
@@ -111,4 +114,50 @@ export async function POST(request: NextRequest) {
   }
 
   return NextResponse.json({ success: true, ordersUpdated: updates.length, totalFee });
+}
+
+// DELETE: ยกเลิกกระทบยอดของช่องทาง+ช่วงวันที่ที่เลือก (ปฏิทินกรุงเทพ, รวมทั้ง from และ to)
+// -> รีเซ็ตเฉพาะออเดอร์ในช่วงนั้นกลับเป็น reconciled = false, fee = 0
+// ไม่แตะ total_amount หรือออเดอร์ช่วงวันอื่นเลย
+export async function DELETE(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const channel = searchParams.get("channel");
+  const from = searchParams.get("from");
+  const to = searchParams.get("to");
+
+  if (!channel || !from || !to) {
+    return NextResponse.json({ error: "missing channel/from/to" }, { status: 400 });
+  }
+
+  const { startIso, endIso } = bangkokRangeToUtc(from, to);
+
+  const admin = getAdmin();
+  const { data: orders, error: findError } = await admin
+    .from("orders")
+    .select("id")
+    .eq("channel", channel)
+    .eq("reconciled", true)
+    .gte("created_at", startIso)
+    .lt("created_at", endIso);
+
+  if (findError) {
+    return NextResponse.json({ error: findError.message }, { status: 500 });
+  }
+  if (!orders || orders.length === 0) {
+    return NextResponse.json({ error: "ไม่พบออเดอร์ที่กระทบยอดไว้ในช่วงที่เลือก" }, { status: 400 });
+  }
+
+  const { error: updateError } = await admin
+    .from("orders")
+    .update({ reconciled: false, fee: 0 })
+    .in(
+      "id",
+      orders.map((o) => o.id)
+    );
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, ordersReset: orders.length });
 }
