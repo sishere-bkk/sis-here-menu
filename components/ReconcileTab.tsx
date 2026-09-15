@@ -40,6 +40,9 @@ export default function ReconcileTab() {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState("");
+  // ยืนยัน 2 ขั้นในหน้าเว็บเอง แทนการพึ่ง window.confirm() ของเบราว์เซอร์
+  // (บางเครื่อง/บางแอปที่เปิดเว็บนี้ บล็อกป๊อปอัพ confirm ของเบราว์เซอร์แบบเงียบๆ กดแล้วไม่มีอะไรเกิดขึ้นเลย)
+  const [pendingConfirm, setPendingConfirm] = useState(false);
 
   // --- ไทยช่วยไทย (สมุดจด) ---
   const [tctEntries, setTctEntries] = useState<ThaiChuayThaiEntry[] | null>(null);
@@ -60,6 +63,7 @@ export default function ReconcileTab() {
     setLoading(true);
     setMessage("");
     setOrders(null);
+    setPendingConfirm(false);
     try {
       const res = await fetch(`/api/reconcile?channel=${channel}&from=${from}&to=${to}`);
       const data = await res.json();
@@ -78,10 +82,15 @@ export default function ReconcileTab() {
 
   async function submitReconcile() {
     if (!actualReceived) {
-      alert("กรอกยอดที่ได้รับจริงก่อนครับ");
+      setMessage("กรอกยอดที่ได้รับจริงก่อนครับ");
       return;
     }
-    if (!confirm(`ยืนยันกระทบยอด ${orders?.length ?? 0} ออเดอร์ ใช่ไหม?`)) return;
+    // คลิกแรก: แค่เข้าสู่โหมด "รอยืนยัน" ยังไม่บันทึกจริง ต้องกดปุ่มซ้ำอีกครั้งเพื่อยืนยัน
+    if (!pendingConfirm) {
+      setPendingConfirm(true);
+      setMessage("");
+      return;
+    }
     setSubmitting(true);
     setMessage("");
     try {
@@ -107,6 +116,7 @@ export default function ReconcileTab() {
       setMessage("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     } finally {
       setSubmitting(false);
+      setPendingConfirm(false);
     }
   }
 
@@ -131,7 +141,7 @@ export default function ReconcileTab() {
 
   async function submitThaiChuayThai() {
     if (!tctAmount) {
-      alert("กรอกจำนวนเงินก่อนครับ");
+      setTctMessage("กรอกจำนวนเงินก่อนครับ");
       return;
     }
     setTctSubmitting(true);
@@ -288,7 +298,10 @@ export default function ReconcileTab() {
               <input
                 type="number"
                 value={actualReceived}
-                onChange={(e) => setActualReceived(e.target.value)}
+                onChange={(e) => {
+                  setActualReceived(e.target.value);
+                  setPendingConfirm(false);
+                }}
                 placeholder="เช่น 4200"
                 className="mb-3 w-full rounded-lg border border-forest/15 px-3 py-2 text-sm"
               />
@@ -299,17 +312,35 @@ export default function ReconcileTab() {
                 </p>
               )}
 
+              {pendingConfirm && (
+                <p className="mb-2 text-sm font-semibold" style={{ color: "#D62828" }}>
+                  แน่ใจนะครับ? กระทบยอด {orders.length} ออเดอร์ — กดปุ่มด้านล่างอีกครั้งเพื่อยืนยันจริง
+                </p>
+              )}
+
               <button
                 onClick={submitReconcile}
                 disabled={submitting || orders.length === 0}
                 style={{
-                  width: "100%", borderRadius: 9999, backgroundColor: "#E8792F",
+                  width: "100%", borderRadius: 9999,
+                  backgroundColor: pendingConfirm ? "#D62828" : "#E8792F",
                   padding: "14px 20px", fontSize: 16, fontWeight: 700, color: "#FCEFC0", border: "none",
                   opacity: (submitting || orders.length === 0) ? 0.5 : 1
                 }}
               >
-                {submitting ? "กำลังบันทึก..." : "บันทึกกระทบยอด"}
+                {submitting ? "กำลังบันทึก..." : pendingConfirm ? "กดอีกครั้งเพื่อยืนยันบันทึก" : "บันทึกกระทบยอด"}
               </button>
+              {pendingConfirm && !submitting && (
+                <button
+                  onClick={() => setPendingConfirm(false)}
+                  style={{
+                    display: "block", width: "100%", textAlign: "center", marginTop: 8,
+                    fontSize: 13, color: "#3A2A1899", background: "none", border: "none"
+                  }}
+                >
+                  ยกเลิก ไม่บันทึก
+                </button>
+              )}
             </>
           )}
 
