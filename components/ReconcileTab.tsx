@@ -30,12 +30,15 @@ function formatRaw(value: number) {
 
 export default function ReconcileTab() {
   const [channel, setChannel] = useState<"grab" | "lineman" | "thaichuaythai">("grab");
+  // โหมดดูของที่ "ยังไม่กระทบยอด" (ปกติ) หรือ "กระทบยอดไปแล้ว" (ไว้เช็ค/ยกเลิกช่วงที่กรอกผิด)
+  const [viewMode, setViewMode] = useState<"unreconciled" | "reconciled">("unreconciled");
 
   // --- Grab / LINE MAN ปกติ ---
   const [from, setFrom] = useState(todayStr());
   const [to, setTo] = useState(todayStr());
   const [orders, setOrders] = useState<OrderRow[] | null>(null);
   const [keyedTotal, setKeyedTotal] = useState(0);
+  const [feeTotal, setFeeTotal] = useState(0);
   const [actualReceived, setActualReceived] = useState("");
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -43,6 +46,7 @@ export default function ReconcileTab() {
   // ยืนยัน 2 ขั้นในหน้าเว็บเอง แทนการพึ่ง window.confirm() ของเบราว์เซอร์
   // (บางเครื่อง/บางแอปที่เปิดเว็บนี้ บล็อกป๊อปอัพ confirm ของเบราว์เซอร์แบบเงียบๆ กดแล้วไม่มีอะไรเกิดขึ้นเลย)
   const [pendingConfirm, setPendingConfirm] = useState(false);
+  const [pendingCancel, setPendingCancel] = useState(false);
 
   // --- ไทยช่วยไทย (สมุดจด) ---
   const [tctEntries, setTctEntries] = useState<ThaiChuayThaiEntry[] | null>(null);
@@ -64,8 +68,11 @@ export default function ReconcileTab() {
     setMessage("");
     setOrders(null);
     setPendingConfirm(false);
+    setPendingCancel(false);
     try {
-      const res = await fetch(`/api/reconcile?channel=${channel}&from=${from}&to=${to}`);
+      const res = await fetch(
+        `/api/reconcile?channel=${channel}&from=${from}&to=${to}&mode=${viewMode}`
+      );
       const data = await res.json();
       if (!res.ok) {
         setMessage("โหลดไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
@@ -73,6 +80,7 @@ export default function ReconcileTab() {
       }
       setOrders(data.orders);
       setKeyedTotal(data.keyedTotal);
+      setFeeTotal(data.feeTotal ?? 0);
     } catch {
       setMessage("โหลดไม่สำเร็จ ลองใหม่อีกครั้ง");
     } finally {
@@ -117,6 +125,35 @@ export default function ReconcileTab() {
     } finally {
       setSubmitting(false);
       setPendingConfirm(false);
+    }
+  }
+
+  // ยกเลิกกระทบยอดของช่องทาง+ช่วงวันที่ที่เลือกไว้ (เฉพาะช่วงนี้เท่านั้น ไม่กระทบช่วงอื่น)
+  async function cancelReconcile() {
+    if (!pendingCancel) {
+      setPendingCancel(true);
+      setMessage("");
+      return;
+    }
+    setSubmitting(true);
+    setMessage("");
+    try {
+      const res = await fetch(
+        `/api/reconcile?channel=${channel}&from=${from}&to=${to}`,
+        { method: "DELETE" }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage("ยกเลิกไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
+        return;
+      }
+      setMessage(`ยกเลิกกระทบยอดแล้ว ${data.ordersReset} ออเดอร์ กลับเป็น "ยังไม่กระทบยอด"`);
+      setOrders(null);
+    } catch {
+      setMessage("ยกเลิกไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setSubmitting(false);
+      setPendingCancel(false);
     }
   }
 
@@ -213,8 +250,33 @@ export default function ReconcileTab() {
 
       {channel !== "thaichuaythai" && (
         <>
+          <div style={{ display: "flex", gap: 6, marginBottom: 12, borderRadius: 12, backgroundColor: "#E8792F1A", padding: 4 }}>
+            <button
+              onClick={() => { setViewMode("unreconciled"); setOrders(null); setMessage(""); }}
+              style={{
+                flex: 1, borderRadius: 9, padding: "8px 6px", fontSize: 13, fontWeight: 600, border: "none",
+                backgroundColor: viewMode === "unreconciled" ? "#E8792F" : "transparent",
+                color: viewMode === "unreconciled" ? "#FCEFC0" : "#B85A1F99"
+              }}
+            >
+              ยังไม่กระทบยอด
+            </button>
+            <button
+              onClick={() => { setViewMode("reconciled"); setOrders(null); setMessage(""); }}
+              style={{
+                flex: 1, borderRadius: 9, padding: "8px 6px", fontSize: 13, fontWeight: 600, border: "none",
+                backgroundColor: viewMode === "reconciled" ? "#E8792F" : "transparent",
+                color: viewMode === "reconciled" ? "#FCEFC0" : "#B85A1F99"
+              }}
+            >
+              กระทบยอดแล้ว (แก้/ยกเลิก)
+            </button>
+          </div>
+
           <p className="mb-4 text-sm text-ink/60">
-            {channel === "grab"
+            {viewMode === "reconciled"
+              ? "เลือกช่วงวันที่ที่เคยกระทบยอดไปแล้ว เพื่อดูสรุปและยกเลิกได้ ถ้ากรอกยอดผิดไป"
+              : channel === "grab"
               ? "เลือกวันที่ แล้วกรอกยอดรวมที่ได้รับจริงของวันนั้น"
               : "เลือกช่วงวันที่ แล้วกรอกยอดรวมที่ได้รับจริงในช่วงนั้น (ตามรอบที่โอนเข้ามา)"}
           </p>
@@ -277,14 +339,71 @@ export default function ReconcileTab() {
               boxShadow: "0 4px 10px rgba(0,0,0,0.15)", opacity: loading ? 0.5 : 1
             }}
           >
-            {loading ? "กำลังโหลด..." : "ดึงยอดที่ยังไม่กระทบยอด"}
+            {loading
+              ? "กำลังโหลด..."
+              : viewMode === "reconciled"
+              ? "ดึงยอดที่กระทบยอดแล้ว"
+              : "ดึงยอดที่ยังไม่กระทบยอด"}
           </button>
 
           {orders && orders.length === 0 && (
-            <p className="mb-4 text-sm text-ink/50">ไม่มีออเดอร์ที่ยังไม่กระทบยอดในช่วงนี้</p>
+            <p className="mb-4 text-sm text-ink/50">
+              {viewMode === "reconciled"
+                ? "ไม่มีออเดอร์ที่กระทบยอดไว้ในช่วงนี้"
+                : "ไม่มีออเดอร์ที่ยังไม่กระทบยอดในช่วงนี้"}
+            </p>
           )}
 
-          {orders && orders.length > 0 && (
+          {orders && orders.length > 0 && viewMode === "reconciled" && (
+            <>
+              <div className="mb-4 rounded-xl border border-forest/10 bg-white p-4">
+                <p className="mb-2 text-sm text-ink/60">พบ {orders.length} ออเดอร์ กระทบยอดไว้แล้วในช่วงนี้</p>
+                <div className="mb-1 flex items-center justify-between">
+                  <span className="text-sm text-ink/60">ยอดที่คีย์ไว้ทั้งหมด</span>
+                  <span className="text-lg font-semibold text-forestDark">{formatRaw(keyedTotal)} บาท</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-ink/60">ค่าคอมมิชชั่นที่เคยคำนวณไว้</span>
+                  <span className="text-sm font-semibold text-red-600">{formatRaw(feeTotal)} บาท</span>
+                </div>
+              </div>
+
+              {pendingCancel && (
+                <p className="mb-2 text-sm font-semibold" style={{ color: "#D62828" }}>
+                  แน่ใจนะครับ? ยกเลิกกระทบยอด {orders.length} ออเดอร์ในช่วงนี้ — กดปุ่มด้านล่างอีกครั้งเพื่อยืนยัน
+                </p>
+              )}
+              <button
+                onClick={cancelReconcile}
+                disabled={submitting}
+                style={{
+                  width: "100%", borderRadius: 9999,
+                  backgroundColor: "#D62828",
+                  padding: "14px 20px", fontSize: 16, fontWeight: 700, color: "#fff", border: "none",
+                  opacity: submitting ? 0.5 : 1
+                }}
+              >
+                {submitting
+                  ? "กำลังยกเลิก..."
+                  : pendingCancel
+                  ? "กดอีกครั้งเพื่อยืนยันยกเลิก"
+                  : "ยกเลิกกระทบยอดช่วงนี้"}
+              </button>
+              {pendingCancel && !submitting && (
+                <button
+                  onClick={() => setPendingCancel(false)}
+                  style={{
+                    display: "block", width: "100%", textAlign: "center", marginTop: 8,
+                    fontSize: 13, color: "#3A2A1899", background: "none", border: "none"
+                  }}
+                >
+                  ไม่ยกเลิก
+                </button>
+              )}
+            </>
+          )}
+
+          {orders && orders.length > 0 && viewMode === "unreconciled" && (
             <>
               <div className="mb-4 rounded-xl border border-forest/10 bg-white p-4">
                 <p className="mb-2 text-sm text-ink/60">พบ {orders.length} ออเดอร์ ยังไม่กระทบยอด</p>
