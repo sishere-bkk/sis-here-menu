@@ -42,7 +42,7 @@ function formatDateTime(iso: string) {
     minute: "2-digit",
     hour12: false
   });
-  return `${dateFmt.format(d)} ${timeFmt.format(d)}`;
+  return `${dateFmt.format(d)} ${timeFmt.format(d)} น.`;
 }
 
 function sourceLabel(o: OrderRow) {
@@ -700,22 +700,48 @@ export default function StaffPage() {
               style={{
                 fontFamily: "monospace",
                 width: "58mm",
+                boxSizing: "border-box",
+                padding: "0 2mm",
                 fontWeight: 900,
-                lineHeight: 1.5,
-                fontSize: 16
+                lineHeight: 1.4,
+                fontSize: 16,
+                color: "#000"
               }}
             >
-              <p style={{ textAlign: "center", fontWeight: 900, fontSize: 34, margin: "0 0 4px" }}>
-                SiS HERE
-              </p>
-              <p style={{ textAlign: "center", fontSize: 26, margin: "0 0 6px" }}>
+              {/* หัวบิล: โลโก้ + ชื่อร้าน อยู่บรรทัดเดียวกัน กึ่งกลาง */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 6,
+                  margin: "0 0 2px"
+                }}
+              >
+                {/* ไฟล์โลโก้ต้องวางไว้ที่ public/logo.png ในโปรเจกต์ ถ้ายังไม่มีไฟล์ รูปจะถูกซ่อนอัตโนมัติ ไม่พังหน้าจอ */}
+                <img
+                  src="/logo.png"
+                  alt=""
+                  style={{ height: 26, width: "auto", display: "block" }}
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).style.display = "none";
+                  }}
+                />
+                <span style={{ fontWeight: 900, fontSize: 24 }}>SiS HERE</span>
+              </div>
+
+              <p style={{ textAlign: "center", fontSize: 17, margin: "0 0 1px" }}>
                 {printHeaderLabel(printOrder)}
               </p>
-              <p style={{ margin: "0 0 4px" }}>------------------------</p>
+              <p style={{ textAlign: "center", fontSize: 13, fontWeight: 400, margin: "0 0 6px" }}>
+                {formatDateTime(printOrder.created_at)}
+              </p>
+
+              <div style={{ borderTop: "2px solid #000", margin: "0 0 8px" }} />
 
               {printOrder.items.map((line: any, idx: number) => (
-                <div key={idx} style={{ marginBottom: 4 }}>
-                  <p style={{ fontSize: 20, margin: 0 }}>
+                <div key={idx} style={{ marginBottom: 10 }}>
+                  <p style={{ fontSize: 17, margin: 0 }}>
                     {line.qty} x {line.name}
                     {!isDeliveryPrint && ` ${line.unitPrice.toFixed(0)} บาท`}
                   </p>
@@ -725,17 +751,17 @@ export default function StaffPage() {
                       .map((o: string) => o.trim())
                       .filter(Boolean)
                       .map((opt: string, i: number) => (
-                        <p key={i} style={{ fontSize: 16, margin: 0, paddingLeft: 10 }}>
+                        <p key={i} style={{ fontSize: 14, margin: "1px 0 0", paddingLeft: 18 }}>
                           + {opt}
                         </p>
                       ))}
                   {line.note && (
                     <p
                       style={{
-                        fontSize: 16,
-                        margin: "2px 0 0 10px",
+                        fontSize: 13,
+                        margin: "3px 0 0 18px",
                         padding: "2px 6px",
-                        border: "1px dashed #999",
+                        border: "1px dashed #666",
                         display: "inline-block"
                       }}
                     >
@@ -745,19 +771,22 @@ export default function StaffPage() {
                 </div>
               ))}
 
-              <p style={{ margin: "4px 0" }}>------------------------</p>
+              <div style={{ borderTop: "1px dashed #000", margin: "2px 0 6px" }} />
 
               {isDeliveryPrint && (
-                <p style={{ textAlign: "center", fontSize: 20, margin: "0 0 4px" }}>
-                  {printOrder.needs_utensils ? "รับช้อนส้อม" : "ไม่รับช้อนส้อม"}
-                </p>
+                <>
+                  <p style={{ textAlign: "center", fontSize: 16, fontWeight: 900, margin: "0 0 6px" }}>
+                    ** {printOrder.needs_utensils ? "รับช้อนส้อม" : "ไม่รับช้อนส้อม"} **
+                  </p>
+                  <div style={{ borderTop: "1px dashed #000", margin: "0 0 6px" }} />
+                </>
               )}
 
               {!isDeliveryPrint && (
-                <p style={{ fontSize: 24, margin: 0 }}>รวม: {printTotal.toFixed(0)} บาท</p>
+                <p style={{ fontSize: 18, margin: "0 0 6px" }}>รวม: {printTotal.toFixed(0)} บาท</p>
               )}
 
-              {staffName && <p style={{ fontSize: 14, margin: "6px 0 0" }}>พนักงาน: {staffName}</p>}
+              {staffName && <p style={{ fontSize: 12, fontWeight: 400, margin: 0 }}>พนักงาน: {staffName}</p>}
             </div>
           </div>
         </>
