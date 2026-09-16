@@ -24,13 +24,15 @@ type OrderLine = {
   selections?: Record<string, string[]>;
 };
 
-// หน้านี้ใช้คีย์ออเดอร์ Grab/LINE MAN เท่านั้น เลยต้องใช้ชื่อ/ราคา/ตัวเลือก/รูป
+// หน้านี้ใช้คีย์ออเดอร์ Grab/LINE MAN/หน้าร้าน เลยต้องใช้ชื่อ/ราคา/ตัวเลือก/รูป
 // เวอร์ชัน "delivery_*" แทนของเมนูออนไลน์ปกติเสมอ (ถ้าไม่ได้ตั้งไว้ ค่อย fallback ไปใช้ของเดิม)
 // ยกเว้นรูป (delivery_image_url) ที่ตั้งใจ "ไม่" fallback ไปใช้รูปเมนูออนไลน์ เพราะอยากแยกกันเด็ดขาด
 
 const EXTRAS_CATEGORY = "ของทานเล่น ราคาพิเศษ";
 // หมวดที่ไม่ต้องมี popup ตัวเลือกเลย (กด + แล้วเพิ่มลงออเดอร์ทันที)
 const NO_OPTIONS_CATEGORIES = ["เครื่องดื่ม", "สลัดและของทานเล่น"];
+
+type Channel = "grab" | "lineman" | "store";
 
 function getEffectivePrice(item: MenuItem): number {
   const deliveryPrice = (item as any).delivery_price;
@@ -57,7 +59,7 @@ function getDeliveryImage(item: MenuItem): string | null {
 }
 
 export default function ManualOrderTab({ staffName }: { staffName: string }) {
-  const [channel, setChannel] = useState<"grab" | "lineman">("grab");
+  const [channel, setChannel] = useState<Channel>("grab");
   const [platformOrderNo, setPlatformOrderNo] = useState("");
   const [needsUtensils, setNeedsUtensils] = useState(true);
   const [discountInput, setDiscountInput] = useState("");
@@ -318,7 +320,7 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           channel,
           platformOrderNo: platformOrderNo || null,
           keyedBy: staffName || null,
-          needsUtensils,
+          needsUtensils: channel === "store" ? true : needsUtensils,
           discount: discountValue,
           items: lines.map((l) => ({
             name: l.name,
@@ -351,15 +353,15 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
 
   return (
     <div className="pb-10">
-      {/* ข้อ 11: สีคนละโทนของแต่ละแอป — Grab เขียวเข้ม / LINE MAN เขียวสว่าง */}
+      {/* ข้อ 11: สีคนละโทนของแต่ละช่องทาง — Grab เขียวเข้ม / LINE MAN เขียวสว่าง / หน้าร้าน น้ำตาลเข้ม */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
         <button
           onClick={() => setChannel("grab")}
           style={{
             flex: 1,
             borderRadius: 9999,
-            padding: "12px 14px",
-            fontSize: 15,
+            padding: "12px 10px",
+            fontSize: 14,
             fontWeight: 600,
             border: "1px solid",
             ...(channel === "grab"
@@ -374,8 +376,8 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
           style={{
             flex: 1,
             borderRadius: 9999,
-            padding: "12px 14px",
-            fontSize: 15,
+            padding: "12px 10px",
+            fontSize: 14,
             fontWeight: 600,
             border: "1px solid",
             ...(channel === "lineman"
@@ -385,13 +387,33 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         >
           LINE MAN
         </button>
+        <button
+          onClick={() => setChannel("store")}
+          style={{
+            flex: 1,
+            borderRadius: 9999,
+            padding: "12px 10px",
+            fontSize: 14,
+            fontWeight: 600,
+            border: "1px solid",
+            ...(channel === "store"
+              ? { backgroundColor: "#3A2A18", color: "#FCEFC0", borderColor: "#3A2A18" }
+              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+          }}
+        >
+          หน้าร้าน
+        </button>
       </div>
 
       <input
         type="text"
         value={platformOrderNo}
         onChange={(e) => setPlatformOrderNo(e.target.value)}
-        placeholder="เลขออเดอร์แพลตฟอร์ม (ไม่บังคับ) เช่น GR-48213"
+        placeholder={
+          channel === "store"
+            ? "หมายเลขโต๊ะ/ชื่อลูกค้า (ไม่บังคับ)"
+            : "เลขออเดอร์แพลตฟอร์ม (ไม่บังคับ) เช่น GR-48213"
+        }
         className="mb-4 w-full rounded-xl border border-forest/15 px-3 py-2 text-sm"
       />
 
@@ -448,41 +470,46 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
         <span style={{ fontSize: 22, lineHeight: 1 }}>＋</span> เพิ่มรายการจากเมนู
       </button>
 
-      <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <button
-          onClick={() => setNeedsUtensils(true)}
-          style={{
-            flex: 1,
-            borderRadius: 9999,
-            padding: "12px 14px",
-            fontSize: 15,
-            fontWeight: 600,
-            border: "1px solid",
-            ...(needsUtensils
-              ? { backgroundColor: "#0D9488", color: "#ffffff", borderColor: "#0D9488" }
-              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
-          }}
-        >
-          รับช้อนส้อม
-        </button>
-        <button
-          onClick={() => setNeedsUtensils(false)}
-          style={{
-            flex: 1,
-            borderRadius: 9999,
-            padding: "12px 14px",
-            fontSize: 15,
-            fontWeight: 600,
-            border: "1px solid",
-            ...(!needsUtensils
-              ? { backgroundColor: "#D62828", color: "#ffffff", borderColor: "#D62828" }
-              : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
-          }}
-        >
-          ไม่รับช้อนส้อม
-        </button>
-      </div>
+      {/* หน้าร้าน = ลูกค้ากินที่ร้าน ไม่ต้องถามเรื่องช้อนส้อม เลยซ่อนส่วนนี้ */}
+      {channel !== "store" && (
+        <>
+          <p className="mb-2 text-sm font-semibold text-ink">ช้อนส้อม</p>
+          <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+            <button
+              onClick={() => setNeedsUtensils(true)}
+              style={{
+                flex: 1,
+                borderRadius: 9999,
+                padding: "12px 14px",
+                fontSize: 15,
+                fontWeight: 600,
+                border: "1px solid",
+                ...(needsUtensils
+                  ? { backgroundColor: "#0D9488", color: "#ffffff", borderColor: "#0D9488" }
+                  : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+              }}
+            >
+              รับช้อนส้อม
+            </button>
+            <button
+              onClick={() => setNeedsUtensils(false)}
+              style={{
+                flex: 1,
+                borderRadius: 9999,
+                padding: "12px 14px",
+                fontSize: 15,
+                fontWeight: 600,
+                border: "1px solid",
+                ...(!needsUtensils
+                  ? { backgroundColor: "#D62828", color: "#ffffff", borderColor: "#D62828" }
+                  : { backgroundColor: "#ffffff", color: "#3A2A18", borderColor: "#E8792F26" })
+              }}
+            >
+              ไม่รับช้อนส้อม
+            </button>
+          </div>
+        </>
+      )}
 
       <div className="flex items-center justify-between border-t border-forest/10 pt-3 mb-1">
         <span className="text-sm text-ink/60">ยอดรวมรายการ</span>
@@ -650,7 +677,9 @@ export default function ManualOrderTab({ staffName }: { staffName: string }) {
                     </p>
                   )}
                   <div className="rounded-xl border border-dashed border-forest/30 p-3">
-                    <p className="mb-2 text-xs font-medium text-ink">พิมพ์เอง</p>
+                    <p className="mb-2 text-xs font-medium text-ink">
+                      พิมพ์เอง (สำหรับเมนูที่ลูกค้าสั่งแต่ไม่มีในระบบ)
+                    </p>
                     <input
                       value={customName}
                       onChange={(e) => setCustomName(e.target.value)}
