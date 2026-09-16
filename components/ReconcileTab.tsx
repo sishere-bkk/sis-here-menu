@@ -58,6 +58,14 @@ export default function ReconcileTab() {
   const [tctSubmitting, setTctSubmitting] = useState(false);
   const [tctMessage, setTctMessage] = useState("");
 
+  // แก้ไขรายการไทยช่วยไทยที่เคยบันทึกไว้แล้ว (วันที่/ยอด/โน้ตผิด)
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [editAmount, setEditAmount] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
+  const [editPendingDelete, setEditPendingDelete] = useState(false);
+
   useEffect(() => {
     if (channel === "thaichuaythai") loadThaiChuayThai();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -205,6 +213,81 @@ export default function ReconcileTab() {
       setTctMessage("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     } finally {
       setTctSubmitting(false);
+    }
+  }
+
+  // เปิดฟอร์มแก้ไขรายการที่เลือก (เติมค่าเดิมลงในฟอร์มให้)
+  function startEdit(entry: ThaiChuayThaiEntry) {
+    setEditingId(entry.id);
+    setEditDate(entry.entry_date.slice(0, 10));
+    setEditAmount(String(entry.amount));
+    setEditNote(entry.note ?? "");
+    setEditPendingDelete(false);
+    setTctMessage("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditPendingDelete(false);
+  }
+
+  async function saveEdit() {
+    if (!editingId || !editDate || !editAmount) {
+      setTctMessage("กรอกวันที่และจำนวนเงินก่อนครับ");
+      return;
+    }
+    setEditSubmitting(true);
+    setTctMessage("");
+    try {
+      const res = await fetch("/api/thai-chuay-thai", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingId,
+          entryDate: editDate,
+          amount: Number(editAmount),
+          note: editNote || null
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTctMessage("แก้ไขไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
+        return;
+      }
+      setEditingId(null);
+      loadThaiChuayThai();
+    } catch {
+      setTctMessage("แก้ไขไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }
+
+  // ลบรายการ ต้องกดยืนยัน 2 จังหวะเหมือนปุ่มอื่นๆ ในหน้านี้ (ไม่พึ่ง window.confirm())
+  async function deleteEntry() {
+    if (!editingId) return;
+    if (!editPendingDelete) {
+      setEditPendingDelete(true);
+      return;
+    }
+    setEditSubmitting(true);
+    setTctMessage("");
+    try {
+      const res = await fetch(`/api/thai-chuay-thai?id=${editingId}`, {
+        method: "DELETE"
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTctMessage("ลบไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
+        return;
+      }
+      setEditingId(null);
+      setEditPendingDelete(false);
+      loadThaiChuayThai();
+    } catch {
+      setTctMessage("ลบไม่สำเร็จ ลองใหม่อีกครั้ง");
+    } finally {
+      setEditSubmitting(false);
     }
   }
 
@@ -539,12 +622,103 @@ export default function ReconcileTab() {
           {tctEntries && tctEntries.length > 0 && (
             <div className="space-y-2">
               {tctEntries.map((e) => (
-                <div key={e.id} className="flex items-center justify-between rounded-xl border border-forest/10 bg-white p-3">
-                  <div>
-                    <p className="text-sm text-ink">{e.entry_date}</p>
-                    {e.note && <p className="text-xs text-ink/50">{e.note}</p>}
-                  </div>
-                  <p className="font-semibold text-[#8B3A2B]">{formatRaw(Number(e.amount))} บาท</p>
+                <div key={e.id} className="rounded-xl border border-forest/10 bg-white p-3">
+                  {editingId === e.id ? (
+                    <div>
+                      <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>วันที่</label>
+                      <input
+                        type="date"
+                        value={editDate}
+                        onChange={(ev) => setEditDate(ev.target.value)}
+                        style={{
+                          marginBottom: 8, display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
+                          boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
+                          border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "8px 10px", fontSize: 14
+                        }}
+                      />
+                      <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>จำนวนเงิน (บาท)</label>
+                      <input
+                        type="number"
+                        value={editAmount}
+                        onChange={(ev) => setEditAmount(ev.target.value)}
+                        style={{
+                          marginBottom: 8, width: "100%", boxSizing: "border-box", borderRadius: 8,
+                          border: "1px solid #E8792F26", padding: "8px 10px", fontSize: 14
+                        }}
+                      />
+                      <label style={{ marginBottom: 4, display: "block", fontSize: 12, color: "#3A2A1880" }}>โน้ต (ไม่บังคับ)</label>
+                      <input
+                        type="text"
+                        value={editNote}
+                        onChange={(ev) => setEditNote(ev.target.value)}
+                        style={{
+                          marginBottom: 10, width: "100%", boxSizing: "border-box", borderRadius: 8,
+                          border: "1px solid #E8792F26", padding: "8px 10px", fontSize: 14
+                        }}
+                      />
+
+                      <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                        <button
+                          onClick={saveEdit}
+                          disabled={editSubmitting}
+                          style={{
+                            flex: 1, borderRadius: 9999, backgroundColor: "#E8792F",
+                            padding: "10px 14px", fontSize: 14, fontWeight: 700, color: "#FCEFC0", border: "none",
+                            opacity: editSubmitting ? 0.5 : 1
+                          }}
+                        >
+                          {editSubmitting ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          disabled={editSubmitting}
+                          style={{
+                            flex: 1, borderRadius: 9999, backgroundColor: "#ffffff",
+                            padding: "10px 14px", fontSize: 14, fontWeight: 600, color: "#3A2A18",
+                            border: "1px solid #E8792F26", opacity: editSubmitting ? 0.5 : 1
+                          }}
+                        >
+                          ยกเลิก
+                        </button>
+                      </div>
+
+                      {editPendingDelete && (
+                        <p className="mb-2 text-xs font-semibold" style={{ color: "#D62828" }}>
+                          แน่ใจนะครับ? ลบรายการนี้ทิ้งถาวร — กดปุ่มด้านล่างอีกครั้งเพื่อยืนยัน
+                        </p>
+                      )}
+                      <button
+                        onClick={deleteEntry}
+                        disabled={editSubmitting}
+                        style={{
+                          width: "100%", borderRadius: 9999, backgroundColor: "#D62828",
+                          padding: "10px 14px", fontSize: 14, fontWeight: 700, color: "#fff", border: "none",
+                          opacity: editSubmitting ? 0.5 : 1
+                        }}
+                      >
+                        {editPendingDelete ? "กดอีกครั้งเพื่อยืนยันลบ" : "ลบรายการนี้"}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-ink">{e.entry_date}</p>
+                        {e.note && <p className="text-xs text-ink/50">{e.note}</p>}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <p className="font-semibold text-[#8B3A2B]">{formatRaw(Number(e.amount))} บาท</p>
+                        <button
+                          onClick={() => startEdit(e)}
+                          style={{
+                            borderRadius: 9999, backgroundColor: "#3A2A1812",
+                            padding: "6px 12px", fontSize: 12, fontWeight: 600, color: "#3A2A18", border: "none"
+                          }}
+                        >
+                          แก้ไข
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
