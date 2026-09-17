@@ -7,6 +7,24 @@ const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const DRINKS_CATEGORY = "เครื่องดื่ม";
 
+// หมวดที่เป็น "เซต" (รวมหลายเมนูไว้ในชื่อเดียว) — ไม่นับยอดเป็นชื่อเซตเอง
+// ทั้งฝั่งขายดีและขายน้อย เพราะจะถูกแตกไปนับที่เมนูย่อยแทนทั้งหมด
+const SET_CATEGORIES = ["เซตสุดฮิต", "อร่อยซ่ากับโค้ก"];
+
+// ตารางแตกเซต: menu id ของเซต -> menu id ของเมนูย่อยที่นับแทน (ตัดเครื่องดื่มที่ติดมากับเซตออกแล้ว)
+// เซตไหนไม่อยู่ในตารางนี้ (เช่นเซตที่เลิกขายไปแล้ว) จะยังนับเป็นชื่อเซตเดิมไปเฉยๆ เหมือนก่อนแก้
+const SET_EXPANSIONS: Record<number, number[]> = {
+  85: [66, 67], // ข้าวไก่ทอด + ข้าวยำไก่แซ่บ
+  84: [61, 65], // ทงคัตสึ ข้าวคลุกกะเพรากรอบ + ข้าวหมูทอด ทงคัตสึ
+  81: [66],     // ข้าวไก่ทอด ไข่ดาวเป็ดลาวา + โค้ก
+  82: [64],     // ข้าวคลุกกะเพรา อกไก่ ไข่เป็ดลาวา + โค้ก
+  80: [62],     // ข้าวผัดคลาสสิก อเมริกัน ไข่ดาว + โค้ก
+  79: [67],     // ข้าวยำไก่แซ่บ ไข่ดาวเป็ดลาวา + โค้ก
+  77: [65],     // ข้าวหมูทอด ทงคัตสึ + โค้ก
+  76: [61],     // ทงคัตสึ ข้าวคลุกกะเพรากรอบ + โค้ก
+  78: [59],     // สปาเก็ตตี้ คั่วพริกแห้ง + โค้ก
+};
+
 function getBangkokYMD(utcMs: number) {
   const bkk = new Date(utcMs + BANGKOK_OFFSET_MS);
   return { y: bkk.getUTCFullYear(), m: bkk.getUTCMonth(), d: bkk.getUTCDate() };
@@ -47,8 +65,17 @@ export async function GET() {
     aliasToMenu.set(row.name, alias);
     if (row.delivery_name) aliasToMenu.set(row.delivery_name, alias);
   }
+
+  // ไว้หาชื่อจริงของเมนูย่อยตอนแตกเซต
+  const menuById = new Map<number, { name: string; category: string | null }>();
+  for (const row of menuRows ?? []) {
+    menuById.set(row.id, { name: row.name, category: row.category });
+  }
+
+  // เมนูขายน้อย: เอาเฉพาะเมนูที่ยังเปิดขายอยู่จริง ไม่ใช่เครื่องดื่ม และไม่ใช่หมวดเซต
+  // (หมวดเซตตัดออกเพราะยอดของตัวเองจะเป็น 0 เสมอหลังแตกไปนับที่เมนูย่อยแล้ว ถ้าไม่ตัดจะโผล่เป็น "ขายน้อยสุด" ปลอมๆ)
   const activeNonDrinkMenu = (menuRows ?? []).filter(
-    (r) => r.available && r.category !== DRINKS_CATEGORY
+    (r) => r.available && r.category !== DRINKS_CATEGORY && !SET_CATEGORIES.includes(r.category ?? "")
   );
 
   // 2) ออเดอร์ที่ "รับเงินแล้ว" ในช่วงที่ต้องใช้ (ครอบคลุมทั้งสัปดาห์และเดือนนี้)
@@ -86,15 +113,29 @@ export async function GET() {
     const alias = aliasToMenu.get(item.item_name);
     if (alias?.category === DRINKS_CATEGORY) continue; // ตัดหมวดเครื่องดื่มออก
 
-    const key = alias ? `m:${alias.menuId}` : `c:${item.item_name}`;
-    const displayName = alias ? alias.canonicalName : item.item_name;
-    nameForKey.set(key, displayName);
+    // ถ้าเป็นเมนูเซตที่มีตารางแตกไว้ ให้บวกยอดให้เมนูย่อยแทน (ซ้อนกันได้หลายตัว)
+    // ถ้าไม่ใช่เซต หรือเป็นเซตที่ไม่มีในตาราง (เช่นเลิกขายแล้ว) นับเป็นชื่อเดิมตามปกติ
+    const expansionIds = alias ? SET_EXPANSIONS[alias.menuId] : undefined;
+    const targets = expansionIds
+      ? expansionIds.map((id) => ({
+          key: `m:${id}`,
+          name: menuById.get(id)?.name ?? `menu-${id}`
+        }))
+      : [
+          {
+            key: alias ? `m:${alias.menuId}` : `c:${item.item_name}`,
+            name: alias ? alias.canonicalName : item.item_name
+          }
+        ];
 
-    if (createdMs >= weekStartMs) {
-      weekSums.set(key, (weekSums.get(key) ?? 0) + item.quantity);
-    }
-    if (createdMs >= monthStartMs) {
-      monthSums.set(key, (monthSums.get(key) ?? 0) + item.quantity);
+    for (const t of targets) {
+      nameForKey.set(t.key, t.name);
+      if (createdMs >= weekStartMs) {
+        weekSums.set(t.key, (weekSums.get(t.key) ?? 0) + item.quantity);
+      }
+      if (createdMs >= monthStartMs) {
+        monthSums.set(t.key, (monthSums.get(t.key) ?? 0) + item.quantity);
+      }
     }
   }
 
