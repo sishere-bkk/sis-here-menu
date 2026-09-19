@@ -39,6 +39,7 @@ function dayLabelTh(dateStr: string) {
 
 type PendingSlip = {
   amount: number | null;
+  date: string | null;
   note: string | null;
   suggestedCategory: string | null;
   slipImageUrl: string;
@@ -147,6 +148,7 @@ export default function ExpenseTab() {
       }
       setPendingSlip({
         amount: data.amount,
+        date: data.date,
         note: data.note,
         suggestedCategory: data.suggestedCategory,
         slipImageUrl: data.slipImageUrl,
