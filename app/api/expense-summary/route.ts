@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,7 +15,6 @@ function todayBangkok(): string {
 export async function GET() {
   const today = todayBangkok();
 
-  // รายจ่ายวันนี้ (สำหรับการ์ดด้านบน + popup ดูรายละเอียด)
   const { data: todayRows, error: todayError } = await supabase
     .from("expenses")
     .select("*")
@@ -24,7 +25,6 @@ export async function GET() {
     return NextResponse.json({ error: todayError.message }, { status: 500 });
   }
 
-  // ยอดสะสมทั้งหมด แยกตามหมวด (สำหรับ bar + donut "สะสมทั้งหมด")
   const { data: allRows, error: allError } = await supabase
     .from("expenses")
     .select("amount, category");
