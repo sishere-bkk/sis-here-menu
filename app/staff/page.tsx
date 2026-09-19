@@ -7,7 +7,7 @@ import UploadImageTab from "../../components/UploadImageTab";
 import DashboardTab from "../../components/DashboardTab";
 import TestOrderTab from "../../components/TestOrderTab";
 import ManualOrderTab from "../../components/ManualOrderTab";
-import ReconcileTab from "../../components/ReconcileTab";
+import FinanceTab from "../../components/FinanceTab";
 
 // เห็นแท็บ Dashboard / ทดสอบ ได้เฉพาะชื่อนี้เท่านั้น
 const OWNER_NAME = "พี่ดี๋";
@@ -107,7 +107,7 @@ function resetZoomAfterPrint() {
 
 export default function StaffPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test" | "reconcile">("orders");
+  const [tab, setTab] = useState<"orders" | "manualorder" | "stock" | "upload" | "dashboard" | "test" | "finance">("orders");
   const [menuOpen, setMenuOpen] = useState(false);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [acceptedOrders, setAcceptedOrders] = useState<OrderRow[]>([]);
@@ -498,12 +498,12 @@ export default function StaffPage() {
                   📊 Dashboard
                 </button>
                 <button
-                  onClick={() => { setTab("reconcile"); setMenuOpen(false); }}
+                  onClick={() => { setTab("finance"); setMenuOpen(false); }}
                   className={`w-full rounded-xl px-4 py-3 text-left text-sm font-semibold ${
-                    tab === "reconcile" ? "bg-[#8B3A2B] text-sand" : "bg-[#8B3A2B]/10 text-[#8B3A2B]"
+                    tab === "finance" ? "bg-[#8B3A2B] text-sand" : "bg-[#8B3A2B]/10 text-[#8B3A2B]"
                   }`}
                 >
-                  💰 กระทบยอด
+                  💰 การเงิน
                 </button>
                 <button
                   onClick={() => { setTab("upload"); setMenuOpen(false); }}
@@ -689,7 +689,7 @@ export default function StaffPage() {
         {tab === "upload" && isOwner && <UploadImageTab />}
         {tab === "dashboard" && isOwner && <DashboardTab />}
         {tab === "test" && isOwner && <TestOrderTab />}
-        {tab === "reconcile" && isOwner && <ReconcileTab />}
+        {tab === "finance" && isOwner && <FinanceTab />}
       </div>
 
       {printOrder && (
