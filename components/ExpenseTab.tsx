@@ -52,7 +52,13 @@ export default function ExpenseTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  // --- popup ยืนยันหลังอัปโหลดสลิป ---
+  // --- คิวอัปโหลดหลายรูปพร้อมกัน ---
+  // uploadQueue = ไฟล์ที่ยังไม่ได้ประมวลผล (ไม่รวมรูปที่กำลังรีวิวอยู่ตอนนี้ใน pendingSlip)
+  const [uploadQueue, setUploadQueue] = useState<File[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const queuePosition = queueTotal > 0 ? queueTotal - uploadQueue.length : 0;
+
+  // --- popup ยืนยันหลังอัปโหลดสลิป (แสดงทีละรูป ทีละใบตามคิว) ---
   const [pendingSlip, setPendingSlip] = useState<PendingSlip | null>(null);
   const [slipDate, setSlipDate] = useState(todayBangkok());
   const [slipCategory, setSlipCategory] = useState(CATEGORIES[0]);
@@ -104,14 +110,25 @@ export default function ExpenseTab() {
     }
   }
 
-  // ---- อัปโหลดรูปสลิป ----
+  // ---- อัปโหลดรูปสลิป (รองรับเลือกหลายรูปพร้อมกัน) ----
   function handleUploadClick() {
     fileInputRef.current?.click();
   }
 
+  // เลือกไฟล์เสร็จ -> ตั้งคิวไว้ แล้วเริ่มประมวลผลรูปแรกทันที ที่เหลือรอในคิว
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (files.length === 0) return;
+
+    setQueueTotal(files.length);
+    const [first, ...rest] = files;
+    setUploadQueue(rest);
+    await processFile(first);
+  }
+
+  // อ่าน 1 ไฟล์ด้วย AI แล้วเปิด popup ให้ยืนยัน (ยังไม่บันทึกจริง)
+  async function processFile(file: File) {
     setUploading(true);
     setMessage("");
     try {
@@ -124,6 +141,8 @@ export default function ExpenseTab() {
       const data = await res.json();
       if (!res.ok) {
         setMessage("อ่านสลิปไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
+        // อ่านรูปนี้ไม่สำเร็จ ข้ามไปรูปถัดไปในคิวอัตโนมัติ (ถ้ามี)
+        await advanceQueue();
         return;
       }
       setPendingSlip({
@@ -138,10 +157,23 @@ export default function ExpenseTab() {
       setSlipStoreAmount("");
     } catch {
       setMessage("อ่านสลิปไม่สำเร็จ ลองใหม่อีกครั้ง");
+      await advanceQueue();
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  }
+
+  // หยิบไฟล์ถัดไปจากคิวมาประมวลผลต่อ ถ้าคิวหมดแล้วก็เคลียร์สถานะคิว
+  async function advanceQueue() {
+    setUploadQueue((current) => {
+      if (current.length === 0) {
+        setQueueTotal(0);
+        return current;
+      }
+      const [next, ...rest] = current;
+      processFile(next);
+      return rest;
+    });
   }
 
   function fileToBase64(file: File): Promise<string> {
@@ -187,11 +219,19 @@ export default function ExpenseTab() {
       }
       setPendingSlip(null);
       loadEntries();
+      // บันทึกรูปนี้เสร็จแล้ว ไปรูปถัดไปในคิวต่ออัตโนมัติ (ถ้ามี)
+      await advanceQueue();
     } catch {
       setMessage("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
     } finally {
       setSlipSubmitting(false);
     }
+  }
+
+  // ข้ามรูปนี้ (ไม่บันทึก) แล้วไปรูปถัดไปในคิวต่อ
+  async function skipPendingSlip() {
+    setPendingSlip(null);
+    await advanceQueue();
   }
 
   // ---- บันทึกด้วยมือ ----
@@ -324,10 +364,12 @@ export default function ExpenseTab() {
 
   return (
     <div style={{ maxWidth: 420, paddingBottom: 40 }}>
+      {/* ไม่ใส่ capture="environment" แล้ว เพื่อให้กดแล้วเลือกได้ทั้งถ่ายรูปใหม่ หรือเลือกจากคลังรูปเดิม
+          ใส่ multiple ไว้ด้วย เพื่อเลือกได้หลายรูปพร้อมกันตอนเลือกจากคลังรูป (อัปทีละหลายใบ) */}
       <input
         type="file"
         accept="image/*"
-        capture="environment"
+        multiple
         ref={fileInputRef}
         onChange={handleFileChange}
         style={{ display: "none" }}
@@ -343,7 +385,11 @@ export default function ExpenseTab() {
           marginBottom: 16, opacity: uploading ? 0.6 : 1
         }}
       >
-        {uploading ? "กำลังอ่านสลิป..." : "📷 ถ่ายรูปสลิป / อัปโหลด"}
+        {uploading
+          ? queueTotal > 1
+            ? `กำลังอ่านสลิป (${queuePosition}/${queueTotal})...`
+            : "กำลังอ่านสลิป..."
+          : "📷 ถ่ายรูปสลิป / อัปโหลด (เลือกได้หลายรูป)"}
       </button>
 
       <div style={{ borderRadius: 16, border: "1px solid #0F6B3D26", backgroundColor: "#fff", padding: 16, marginBottom: 16 }}>
@@ -375,14 +421,21 @@ export default function ExpenseTab() {
 
       {pendingSlip && (
         <div
-          onClick={() => !slipSubmitting && setPendingSlip(null)}
+          onClick={() => !slipSubmitting && skipPendingSlip()}
           style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(58,42,24,0.45)", display: "flex", alignItems: "flex-end" }}
         >
           <div
             onClick={(e) => e.stopPropagation()}
             style={{ width: "100%", maxHeight: "85vh", overflowY: "auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}
           >
-            <h3 style={{ fontSize: 16, fontWeight: 700, color: "#3A2A18", margin: "0 0 4px" }}>ยืนยันรายการจากสลิป</h3>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: "#3A2A18", margin: 0 }}>ยืนยันรายการจากสลิป</h3>
+              {queueTotal > 1 && (
+                <span style={{ fontSize: 12, color: "#3A2A1899", fontWeight: 600 }}>
+                  รูปที่ {queuePosition} / {queueTotal}
+                </span>
+              )}
+            </div>
             <p style={{ fontSize: 11, color: "#3A2A1873", marginBottom: 14 }}>
               {pendingSlip.note ? `หมายเหตุที่อ่านได้: "${pendingSlip.note}"` : "ไม่มีหมายเหตุในสลิป"}
             </p>
@@ -446,14 +499,14 @@ export default function ExpenseTab() {
               disabled={slipSubmitting}
               style={{ width: "100%", borderRadius: 9999, backgroundColor: "#E8792F", padding: "12px 20px", fontSize: 14, fontWeight: 700, color: "#FCEFC0", border: "none", opacity: slipSubmitting ? 0.5 : 1 }}
             >
-              {slipSubmitting ? "กำลังบันทึก..." : "ยืนยันบันทึก"}
+              {slipSubmitting ? "กำลังบันทึก..." : queueTotal > 1 && queuePosition < queueTotal ? "ยืนยัน แล้วไปรูปถัดไป" : "ยืนยันบันทึก"}
             </button>
             <button
-              onClick={() => setPendingSlip(null)}
+              onClick={skipPendingSlip}
               disabled={slipSubmitting}
               style={{ display: "block", width: "100%", textAlign: "center", marginTop: 8, fontSize: 13, color: "#3A2A1899", background: "none", border: "none" }}
             >
-              ยกเลิก
+              {queueTotal > 1 ? "ข้ามรูปนี้ ไม่บันทึก" : "ยกเลิก"}
             </button>
           </div>
         </div>
