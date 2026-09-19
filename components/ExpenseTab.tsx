@@ -412,3 +412,219 @@ export default function ExpenseTab() {
                 <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>ส่วนที่เป็นของร้าน (บาท)</label>
                 <input
                   type="number"
+                  value={slipStoreAmount}
+                  onChange={(e) => setSlipStoreAmount(e.target.value)}
+                  placeholder="เช่น 300"
+                  style={{ marginBottom: 8, width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1.5px solid #8B3A2B", padding: "10px 12px", fontSize: 14 }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 10, backgroundColor: "#3A2A180D", marginBottom: 14, fontSize: 12, color: "#3A2A1899" }}>
+                  <span>ส่วนที่เหลือ (ไม่นับเป็นรายจ่ายร้าน)</span>
+                  <span>{formatRaw(Math.max(0, (pendingSlip.amount ?? 0) - Number(slipStoreAmount || 0)))} บาท</span>
+                </div>
+              </>
+            )}
+
+            <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 6 }}>หมวด</label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+              {CATEGORIES.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => setSlipCategory(c)}
+                  style={{
+                    fontSize: 12, padding: "6px 12px", borderRadius: 9999, border: "none",
+                    backgroundColor: slipCategory === c ? "#8B3A2B" : "#3A2A180D",
+                    color: slipCategory === c ? "#FCEFC0" : "#3A2A18"
+                  }}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={confirmPendingSlip}
+              disabled={slipSubmitting}
+              style={{ width: "100%", borderRadius: 9999, backgroundColor: "#E8792F", padding: "12px 20px", fontSize: 14, fontWeight: 700, color: "#FCEFC0", border: "none", opacity: slipSubmitting ? 0.5 : 1 }}
+            >
+              {slipSubmitting ? "กำลังบันทึก..." : "ยืนยันบันทึก"}
+            </button>
+            <button
+              onClick={() => setPendingSlip(null)}
+              disabled={slipSubmitting}
+              style={{ display: "block", width: "100%", textAlign: "center", marginTop: 8, fontSize: 13, color: "#3A2A1899", background: "none", border: "none" }}
+            >
+              ยกเลิก
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ borderRadius: 16, border: "1px solid #0F6B3D26", backgroundColor: "#fff", padding: 16, marginBottom: 16 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: "#3A2A18", margin: "0 0 12px" }}>✏️ บันทึกด้วยมือ (ไม่มีสลิป)</h3>
+
+        <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>วันที่</label>
+        <input
+          type="date"
+          value={manualDate}
+          onChange={(e) => setManualDate(e.target.value)}
+          style={{ marginBottom: 10, display: "block", width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "10px 12px", fontSize: 14 }}
+        />
+
+        <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>
+          {manualSplit ? "ยอดรวมทั้งบิล (บาท)" : "จำนวนเงิน (บาท)"}
+        </label>
+        <input
+          type="number"
+          value={manualAmount}
+          onChange={(e) => setManualAmount(e.target.value)}
+          placeholder="เช่น 450"
+          style={{ marginBottom: 10, width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "10px 12px", fontSize: 14 }}
+        />
+
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, padding: "10px 12px", borderRadius: 10, backgroundColor: "#E8792F14" }}>
+          <span style={{ fontSize: 13, color: "#3A2A18", fontWeight: 600 }}>บิลนี้มีของปนกัน (ร้าน+ส่วนตัว)</span>
+          <input type="checkbox" checked={manualSplit} onChange={(e) => setManualSplit(e.target.checked)} style={{ width: 20, height: 20 }} />
+        </div>
+
+        {manualSplit && (
+          <>
+            <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>ส่วนที่เป็นของร้าน (บาท)</label>
+            <input
+              type="number"
+              value={manualStoreAmount}
+              onChange={(e) => setManualStoreAmount(e.target.value)}
+              placeholder="เช่น 300"
+              style={{ marginBottom: 8, width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1.5px solid #8B3A2B", padding: "10px 12px", fontSize: 14 }}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 10, backgroundColor: "#3A2A180D", marginBottom: 10, fontSize: 12, color: "#3A2A1899" }}>
+              <span>ส่วนที่เหลือ (ไม่นับเป็นรายจ่ายร้าน)</span>
+              <span>{formatRaw(Math.max(0, Number(manualAmount || 0) - Number(manualStoreAmount || 0)))} บาท</span>
+            </div>
+          </>
+        )}
+
+        <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 6 }}>หมวด</label>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+          {CATEGORIES.map((c) => (
+            <button
+              key={c}
+              onClick={() => setManualCategory(c)}
+              style={{
+                fontSize: 12, padding: "6px 12px", borderRadius: 9999, border: "none",
+                backgroundColor: manualCategory === c ? "#8B3A2B" : "#3A2A180D",
+                color: manualCategory === c ? "#FCEFC0" : "#3A2A18"
+              }}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
+        <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>หมายเหตุ (ไม่บังคับ)</label>
+        <input
+          type="text"
+          value={manualNote}
+          onChange={(e) => setManualNote(e.target.value)}
+          placeholder="เช่น ซื้อจากตลาดนัด"
+          style={{ marginBottom: 12, width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "10px 12px", fontSize: 14 }}
+        />
+
+        {manualMessage && <p style={{ fontSize: 12, color: "#D62828", marginBottom: 8 }}>{manualMessage}</p>}
+
+        <button
+          onClick={submitManual}
+          disabled={manualSubmitting}
+          style={{ width: "100%", borderRadius: 9999, backgroundColor: "#E8792F", padding: "12px 20px", fontSize: 14, fontWeight: 700, color: "#FCEFC0", border: "none", opacity: manualSubmitting ? 0.5 : 1 }}
+        >
+          {manualSubmitting ? "กำลังบันทึก..." : "บันทึก"}
+        </button>
+      </div>
+
+      {message && <p style={{ fontSize: 13, color: "#D62828", marginBottom: 12 }}>{message}</p>}
+
+      <div style={{ borderRadius: 16, border: "1px solid #0F6B3D26", backgroundColor: "#fff", padding: 16 }}>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: "#3A2A18", margin: "0 0 10px" }}>🧾 รายการล่าสุด</h3>
+
+        {loading && <p style={{ fontSize: 13, color: "#3A2A1866" }}>กำลังโหลด...</p>}
+        {!loading && entries && entries.length === 0 && <p style={{ fontSize: 13, color: "#3A2A1866" }}>ยังไม่มีรายการ</p>}
+
+        {!loading && entries && entries.map((entry) => (
+          <div key={entry.id} style={{ borderBottom: "1px solid #EFE9DA", padding: "10px 0" }}>
+            {editingId === entry.id ? (
+              <div>
+                <label style={{ fontSize: 11, color: "#3A2A1880", display: "block", marginBottom: 3 }}>วันที่</label>
+                <input
+                  type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
+                  style={{ marginBottom: 6, display: "block", width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "8px 10px", fontSize: 13 }}
+                />
+                <label style={{ fontSize: 11, color: "#3A2A1880", display: "block", marginBottom: 3 }}>จำนวนเงิน (บาท)</label>
+                <input
+                  type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)}
+                  style={{ marginBottom: 6, width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "8px 10px", fontSize: 13 }}
+                />
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 6 }}>
+                  {CATEGORIES.map((c) => (
+                    <button
+                      key={c} onClick={() => setEditCategory(c)}
+                      style={{
+                        fontSize: 11, padding: "5px 10px", borderRadius: 9999, border: "none",
+                        backgroundColor: editCategory === c ? "#8B3A2B" : "#3A2A180D",
+                        color: editCategory === c ? "#FCEFC0" : "#3A2A18"
+                      }}
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+                <label style={{ fontSize: 11, color: "#3A2A1880", display: "block", marginBottom: 3 }}>หมายเหตุ</label>
+                <input
+                  type="text" value={editNote} onChange={(e) => setEditNote(e.target.value)}
+                  style={{ marginBottom: 8, width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "8px 10px", fontSize: 13 }}
+                />
+                <div style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                  <button
+                    onClick={saveEdit} disabled={editSubmitting}
+                    style={{ flex: 1, borderRadius: 9999, backgroundColor: "#E8792F", padding: "8px 12px", fontSize: 12, fontWeight: 700, color: "#FCEFC0", border: "none", opacity: editSubmitting ? 0.5 : 1 }}
+                  >
+                    {editSubmitting ? "กำลังบันทึก..." : "บันทึกการแก้ไข"}
+                  </button>
+                  <button
+                    onClick={cancelEdit} disabled={editSubmitting}
+                    style={{ flex: 1, borderRadius: 9999, backgroundColor: "#fff", padding: "8px 12px", fontSize: 12, fontWeight: 600, color: "#3A2A18", border: "1px solid #E8792F26" }}
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+                {editPendingDelete && (
+                  <p style={{ fontSize: 11, fontWeight: 600, color: "#D62828", marginBottom: 6 }}>
+                    แน่ใจนะครับ? ลบรายการนี้ทิ้งถาวร — กดอีกครั้งเพื่อยืนยัน
+                  </p>
+                )}
+                <button
+                  onClick={deleteEntry} disabled={editSubmitting}
+                  style={{ width: "100%", borderRadius: 9999, backgroundColor: "#D62828", padding: "8px 12px", fontSize: 12, fontWeight: 700, color: "#fff", border: "none", opacity: editSubmitting ? 0.5 : 1 }}
+                >
+                  {editPendingDelete ? "กดอีกครั้งเพื่อยืนยันลบ" : "ลบรายการนี้"}
+                </button>
+              </div>
+            ) : (
+              <div onClick={() => startEdit(entry)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", cursor: "pointer" }}>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 13, color: "#3A2A18", margin: 0 }}>
+                    {entry.category}{entry.source === "slip" ? " · 📷" : ""}
+                  </p>
+                  <p style={{ fontSize: 11, color: "#3A2A1873", margin: 0 }}>
+                    {dayLabelTh(entry.expense_date)}{entry.note ? ` · ${entry.note}` : ""}
+                  </p>
+                </div>
+                <span style={{ fontSize: 14, fontWeight: 700, color: "#8B3A2B", flexShrink: 0 }}>
+                  {formatRaw(Number(entry.amount))} บาท
+                </span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
