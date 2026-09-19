@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+export const dynamic = "force-dynamic";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -23,15 +25,14 @@ function labelTh(dateStr: string): string {
 
 export async function GET() {
   const today = todayBangkok();
-  const monthPrefix = today.slice(0, 7); // YYYY-MM
+  const monthPrefix = today.slice(0, 7);
   const lastMonthDate = new Date(today + "T12:00:00+07:00");
   lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
   const lastMonthPrefix = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" })
     .format(lastMonthDate)
     .slice(0, 7);
-  const dayOfMonth = Number(today.slice(8, 10)); // ใช้กำหนดว่าจะเทียบกี่วันแรกของเดือนก่อน
+  const dayOfMonth = Number(today.slice(8, 10));
 
-  // ดึงข้อมูลย้อนหลัง 40 วัน พอสำหรับทุกคำนวณด้านล่าง (สัปดาห์นี้/ก่อน, เดือนนี้/ก่อน)
   const from40 = daysAgoBangkok(40);
   const { data: rows, error } = await supabase
     .from("expenses")
@@ -42,7 +43,6 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   const allRows = rows ?? [];
 
-  // --- กราฟรายวัน 7 วันล่าสุด ---
   const last7Dates = Array.from({ length: 7 }, (_, i) => daysAgoBangkok(6 - i));
   const dailyExpenses = last7Dates.map((date) => ({
     date,
@@ -50,14 +50,12 @@ export async function GET() {
     total: allRows.filter((r) => r.expense_date === date).reduce((s, r) => s + Number(r.amount), 0),
   }));
 
-  // --- เทียบสัปดาห์นี้ vs สัปดาห์ก่อน (7 วันล่าสุด vs 7 วันก่อนหน้านั้น) ---
   const thisWeekDates = last7Dates;
   const lastWeekDates = Array.from({ length: 7 }, (_, i) => daysAgoBangkok(13 - i));
   const thisWeekTotal = allRows.filter((r) => thisWeekDates.includes(r.expense_date)).reduce((s, r) => s + Number(r.amount), 0);
   const lastWeekTotal = allRows.filter((r) => lastWeekDates.includes(r.expense_date)).reduce((s, r) => s + Number(r.amount), 0);
   const weekChangePct = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : null;
 
-  // --- เทียบเดือนนี้ (เท่าที่ผ่านมา) vs เดือนก่อนในจำนวนวันเท่ากัน ---
   const thisMonthTotal = allRows
     .filter((r) => r.expense_date.slice(0, 7) === monthPrefix)
     .reduce((s, r) => s + Number(r.amount), 0);
@@ -67,7 +65,6 @@ export async function GET() {
   const monthChangePct =
     lastMonthSamePeriodTotal > 0 ? ((thisMonthTotal - lastMonthSamePeriodTotal) / lastMonthSamePeriodTotal) * 100 : null;
 
-  // --- แยกตามหมวด: สัปดาห์นี้ / เดือนนี้ ---
   const weekByCategory: Record<string, number> = {};
   for (const r of allRows.filter((r) => thisWeekDates.includes(r.expense_date))) {
     weekByCategory[r.category] = (weekByCategory[r.category] ?? 0) + Number(r.amount);
