@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// ห้าม Next.js แคชผลลัพธ์ของ route นี้ไว้ ต้องดึงข้อมูลใหม่จากฐานข้อมูลทุกครั้ง
+export const dynamic = "force-dynamic";
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
