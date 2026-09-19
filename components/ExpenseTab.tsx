@@ -153,7 +153,7 @@ export default function ExpenseTab() {
         suggestedCategory: data.suggestedCategory,
         slipImageUrl: data.slipImageUrl,
       });
-      setSlipDate(todayBangkok());
+      setSlipDate(data.date ?? todayBangkok());
       setSlipCategory(data.suggestedCategory ?? CATEGORIES[0]);
       setSlipSplit(false);
       setSlipStoreAmount("");
