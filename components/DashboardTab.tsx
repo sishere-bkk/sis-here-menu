@@ -18,7 +18,6 @@ const EXPENSE_CATEGORY_COLORS: Record<string, string> = {
   "อื่นๆ": "#C9C2B4",
 };
 const EXPENSE_COLOR_FALLBACK = "#A89F91";
-// "ส่วนตัว" ไม่นับเป็นต้นทุนร้าน เลยไม่รวมในกราฟ/ยอดรวมของแดชบอร์ดฝั่งรายจ่ายและเทียบกำไร
 const PERSONAL_CATEGORY = "ส่วนตัว";
 
 type Summary = {
@@ -96,18 +95,14 @@ type ExpenseTrends = {
   monthByCategory: Record<string, number>;
 };
 
-// สีสำหรับกราฟวงกลม เมนู (ไล่ตามลำดับ 1-5 ของ top5 แล้วที่เหลือใช้สีเทาเป็น "อื่นๆ")
 const ITEM_PIE_COLORS = ["#8B3A2B", "#E8792F", "#B85A1F", "#F2B705", "#3A2A18"];
 const OTHERS_COLOR = "#C9C2B4";
-// สีช่องทาง ใช้สีเดียวกับที่ตั้งไว้ในหน้าคีย์ออเดอร์ ให้สอดคล้องกันทั้งระบบ
 const CHANNEL_COLORS: Record<string, string> = {
   online_menu: "#E8792F",
   grab: "#0F6B3D",
   lineman: "#16A34A",
 };
 
-// ตาข่ายดักจับ error — ถ้าอะไรก็ตามในแท็บ Dashboard พังขึ้นมาระหว่าง render
-// จะโชว์ข้อความ error ตรงนี้แทนจอขาว "Application error" เดิม เห็นสาเหตุจริงได้ทันที
 class DashboardErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   constructor(props: { children: ReactNode }) {
     super(props);
@@ -133,9 +128,6 @@ class DashboardErrorBoundary extends Component<{ children: ReactNode }, { error:
   }
 }
 
-// ---------------------------------------------------------------------------
-// ตัวห่อหลัก: สลับ 3 แท็บ รายรับ / รายจ่าย / เทียบรายรับ-จ่าย
-// ---------------------------------------------------------------------------
 export default function DashboardTab() {
   const [mainTab, setMainTab] = useState<"income" | "expense" | "compare">("income");
 
@@ -177,9 +169,6 @@ export default function DashboardTab() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// แท็บ "รายรับ" — เนื้อหาเดิมทั้งหมดของ DashboardTab เดิม ย้ายมาไว้ในนี้เฉยๆ
-// ---------------------------------------------------------------------------
 function IncomeDashboard() {
   const [data, setData] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -279,8 +268,8 @@ function IncomeDashboard() {
       </Section>
 
       <Section icon="🛍️" title="ยอดขายแยกตามช่องทาง" subtitle="ยอดสะสมทั้งหมด">
-        {Object.keys(data.allTimeByChannel).length === 0 && <Empty />}
-        {Object.entries(data.allTimeByChannel).map(([ch, amount]) => (
+        {Object.keys(data.allTimeByChannel ?? {}).length === 0 && <Empty />}
+        {Object.entries(data.allTimeByChannel ?? {}).map(([ch, amount]) => (
           <BarRow
             key={ch}
             label={CHANNEL_LABELS[ch] ?? ch}
@@ -289,10 +278,10 @@ function IncomeDashboard() {
             display={`${amount.toLocaleString()} บาท`}
           />
         ))}
-        {Object.keys(data.allTimeByChannel).length > 0 && (
+        {Object.keys(data.allTimeByChannel ?? {}).length > 0 && (
           <div className="mt-3">
             <DonutChart
-              segments={Object.entries(data.allTimeByChannel).map(([ch, amount]) => ({
+              segments={Object.entries(data.allTimeByChannel ?? {}).map(([ch, amount]) => ({
                 label: CHANNEL_LABELS[ch] ?? ch,
                 value: amount,
                 color: CHANNEL_COLORS[ch] ?? OTHERS_COLOR,
@@ -304,10 +293,10 @@ function IncomeDashboard() {
 
       <Section icon="🛍️" title="ยอดขายแยกตามช่องทาง สัปดาห์นี้">
         {trendsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
-        {!trendsLoading && trends && Object.keys(trends.weekByChannel).length === 0 && <Empty />}
+        {!trendsLoading && trends && Object.keys(trends.weekByChannel ?? {}).length === 0 && <Empty />}
         {!trendsLoading &&
           trends &&
-          Object.entries(trends.weekByChannel).map(([ch, amount]) => (
+          Object.entries(trends.weekByChannel ?? {}).map(([ch, amount]) => (
             <BarRow
               key={ch}
               label={CHANNEL_LABELS[ch] ?? ch}
@@ -320,10 +309,10 @@ function IncomeDashboard() {
 
       <Section icon="🛍️" title="ยอดขายแยกตามช่องทาง เดือนนี้">
         {trendsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
-        {!trendsLoading && trends && Object.keys(trends.monthByChannel).length === 0 && <Empty />}
+        {!trendsLoading && trends && Object.keys(trends.monthByChannel ?? {}).length === 0 && <Empty />}
         {!trendsLoading &&
           trends &&
-          Object.entries(trends.monthByChannel).map(([ch, amount]) => (
+          Object.entries(trends.monthByChannel ?? {}).map(([ch, amount]) => (
             <BarRow
               key={ch}
               label={CHANNEL_LABELS[ch] ?? ch}
@@ -381,9 +370,6 @@ function IncomeDashboard() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// แท็บ "รายจ่าย" — ใหม่ โครงเดียวกับแท็บรายรับ แต่ดึงจาก /api/expense-summary, /api/expense-trends
-// ---------------------------------------------------------------------------
 function ExpenseDashboard() {
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
@@ -448,20 +434,19 @@ function ExpenseDashboard() {
   }
   if (!summary) return <p className="text-ink/50">โหลดข้อมูลไม่สำเร็จ</p>;
 
-  // ตัดหมวด "ส่วนตัว" ออกจากยอดรวม/กราฟ เพราะไม่ใช่ต้นทุนร้าน
-  const businessCategoryEntries = Object.entries(summary.allTimeByCategory).filter(
+  const businessCategoryEntries = Object.entries(summary.allTimeByCategory ?? {}).filter(
     ([cat]) => cat !== PERSONAL_CATEGORY
   );
   const businessAllTimeTotal = businessCategoryEntries.reduce((s, [, v]) => s + v, 0);
-  const businessTodayEntries = summary.todayEntries.filter((e) => e.category !== PERSONAL_CATEGORY);
+  const businessTodayEntries = (summary.todayEntries ?? []).filter((e) => e.category !== PERSONAL_CATEGORY);
   const businessTodayTotal = businessTodayEntries.reduce((s, e) => s + Number(e.amount), 0);
 
   const weekCategoryEntries = trends
-    ? Object.entries(trends.weekByCategory).filter(([cat]) => cat !== PERSONAL_CATEGORY)
+    ? Object.entries(trends.weekByCategory ?? {}).filter(([cat]) => cat !== PERSONAL_CATEGORY)
     : [];
   const weekBusinessTotal = weekCategoryEntries.reduce((s, [, v]) => s + v, 0);
   const monthCategoryEntries = trends
-    ? Object.entries(trends.monthByCategory).filter(([cat]) => cat !== PERSONAL_CATEGORY)
+    ? Object.entries(trends.monthByCategory ?? {}).filter(([cat]) => cat !== PERSONAL_CATEGORY)
     : [];
   const monthBusinessTotal = monthCategoryEntries.reduce((s, [, v]) => s + v, 0);
 
@@ -553,9 +538,6 @@ function ExpenseDashboard() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// แท็บ "เทียบรายรับ-จ่าย" — ใหม่ รวมข้อมูลจากทั้ง dashboard (รายรับ) และ expense (รายจ่าย)
-// ---------------------------------------------------------------------------
 function CompareDashboard() {
   const [income, setIncome] = useState<Summary | null>(null);
   const [incomeTrends, setIncomeTrends] = useState<Trends | null>(null);
@@ -609,7 +591,7 @@ function CompareDashboard() {
     return <p className="text-ink/50">โหลดข้อมูลไม่สำเร็จ</p>;
   }
 
-  const businessTodayExpense = expense.todayEntries
+  const businessTodayExpense = (expense.todayEntries ?? [])
     .filter((e) => e.category !== PERSONAL_CATEGORY)
     .reduce((s, e) => s + Number(e.amount), 0);
   const todayProfit = income.totalSales - businessTodayExpense;
@@ -623,11 +605,53 @@ function CompareDashboard() {
   const monthProfitPct =
     lastMonthProfit !== 0 ? ((monthProfit - lastMonthProfit) / Math.abs(lastMonthProfit)) * 100 : null;
 
-  const monthBusinessExpense = Object.entries(expenseTrends.monthByCategory)
+  const monthBusinessExpense = Object.entries(expenseTrends.monthByCategory ?? {})
     .filter(([cat]) => cat !== PERSONAL_CATEGORY)
     .reduce((s, [, v]) => s + v, 0);
   const monthIncomeForDonut = incomeTrends.thisMonthTotal || 1;
   const monthProfitForDonut = Math.max(0, monthIncomeForDonut - monthBusinessExpense);
+
+  function downloadData() {
+    const payload = {
+      generatedAt: new Date().toISOString(),
+      income: {
+        today: income.totalSales,
+        todayOrderCount: income.orderCount,
+        thisWeek: incomeTrends.thisWeekTotal,
+        lastWeek: incomeTrends.lastWeekTotal,
+        thisMonth: incomeTrends.thisMonthTotal,
+        lastMonthSamePeriod: incomeTrends.lastMonthSamePeriodTotal,
+        byChannelAllTime: income.allTimeByChannel ?? {},
+        dailyLast7Days: incomeTrends.dailySales,
+      },
+      expense: {
+        today: businessTodayExpense,
+        thisWeek: expenseTrends.thisWeekTotal,
+        lastWeek: expenseTrends.lastWeekTotal,
+        thisMonth: expenseTrends.thisMonthTotal,
+        lastMonthSamePeriod: expenseTrends.lastMonthSamePeriodTotal,
+        byCategoryAllTime: expense.allTimeByCategory ?? {},
+        dailyLast7Days: expenseTrends.dailyExpenses,
+        note: "ยอดรายจ่ายทั้งหมดนี้ไม่รวมหมวด ส่วนตัว เพราะไม่ใช่ต้นทุนร้าน",
+      },
+      profit: {
+        today: todayProfit,
+        thisWeek: weekProfit,
+        lastWeek: lastWeekProfit,
+        thisMonth: monthProfit,
+        lastMonthSamePeriod: lastMonthProfit,
+      },
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `sishere-สรุปรายรับรายจ่าย-${todayBangkokDateStr()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div>
@@ -676,13 +700,23 @@ function CompareDashboard() {
           ]}
         />
       </Section>
+
+      <button
+        onClick={downloadData}
+        style={{
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          borderRadius: 9999, backgroundColor: "#fff", border: "1.5px solid #8B3A2B",
+          padding: "12px 20px", fontSize: 14, fontWeight: 700, color: "#8B3A2B"
+        }}
+      >
+        ⬇️ ดาวน์โหลดข้อมูล (ไปคุยกับ Claude)
+      </button>
+      <p style={{ marginTop: 8, fontSize: 11, color: "#3A2A18", opacity: 0.4, textAlign: "center" }}>
+        ได้ไฟล์ .json สรุปรายรับ-รายจ่าย-กำไร เอาไปแนบถามใน Claude ต่อได้เลย
+      </p>
     </div>
   );
 }
-
-// ---------------------------------------------------------------------------
-// ส่วนประกอบร่วม (ใช้ทั้ง 3 แท็บ)
-// ---------------------------------------------------------------------------
 
 function Section({
   icon,
@@ -747,7 +781,10 @@ function dayLabelBangkok(dateStr: string) {
   return new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", weekday: "short", day: "numeric", month: "short" }).format(d);
 }
 
-// ป๊อปอัพไล่ดูรายบิลของวันนี้ (ฝั่งรายรับ) เปิดจากการแตะกล่องยอดขาย/Order ด้านบนสุด
+function todayBangkokDateStr(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+}
+
 function OrderDetailModal({ data, onClose }: { data: Summary; onClose: () => void }) {
   const sumCheck = data.orderDetails.reduce((s, o) => s + o.totalAmount, 0);
   return (
@@ -835,7 +872,6 @@ function OrderDetailModal({ data, onClose }: { data: Summary; onClose: () => voi
   );
 }
 
-// ป๊อปอัพไล่ดูรายการรายจ่ายของวันนี้ (ฝั่งรายจ่าย) — เปิดจากการแตะกล่อง "รายจ่ายวันนี้ / สลิปวันนี้"
 function ExpenseDetailModal({ entries, onClose }: { entries: ExpenseEntry[]; onClose: () => void }) {
   const sumCheck = entries.reduce((s, e) => s + Number(e.amount), 0);
   return (
