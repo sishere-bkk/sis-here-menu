@@ -328,7 +328,7 @@ function IncomeDashboard() {
         {!topItemsLoading && topItemsData && (
           <>
             <TopItemsList items={topItemsData.topWeekItems} unit="ชิ้น" />
-            {topItemsData.topWeekItems.length > 0 && (
+            {(topItemsData.topWeekItems ?? []).length > 0 && (
               <div className="mt-3">
                 <ItemPie items={topItemsData.topWeekItems} totalQty={topItemsData.totalWeekQty} />
               </div>
@@ -342,7 +342,7 @@ function IncomeDashboard() {
         {!topItemsLoading && topItemsData && (
           <>
             <TopItemsList items={topItemsData.topMonthItems} unit="ชิ้น" />
-            {topItemsData.topMonthItems.length > 0 && (
+            {(topItemsData.topMonthItems ?? []).length > 0 && (
               <div className="mt-3">
                 <ItemPie items={topItemsData.topMonthItems} totalQty={topItemsData.totalMonthQty} />
               </div>
@@ -786,7 +786,8 @@ function todayBangkokDateStr(): string {
 }
 
 function OrderDetailModal({ data, onClose }: { data: Summary; onClose: () => void }) {
-  const sumCheck = data.orderDetails.reduce((s, o) => s + o.totalAmount, 0);
+  const orderDetails = data.orderDetails ?? [];
+  const sumCheck = orderDetails.reduce((s, o) => s + o.totalAmount, 0);
   return (
     <div
       onClick={onClose}
@@ -813,7 +814,7 @@ function OrderDetailModal({ data, onClose }: { data: Summary; onClose: () => voi
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <h3 style={{ fontSize: 16, fontWeight: 700, color: "#3A2A18", margin: 0 }}>
-            บิลวันนี้ทั้งหมด ({data.orderDetails.length} บิล)
+            บิลวันนี้ทั้งหมด ({orderDetails.length} บิล)
           </h3>
           <button onClick={onClose} style={{ fontSize: 13, color: "#3A2A18", opacity: 0.5, border: "none", background: "none" }}>
             ปิด
@@ -823,11 +824,11 @@ function OrderDetailModal({ data, onClose }: { data: Summary; onClose: () => voi
           นับเฉพาะบิลที่กด &quot;รับเงินแล้ว&quot; เท่านั้น — เรียงจากล่าสุดไปเก่าสุด
         </p>
 
-        {data.orderDetails.length === 0 && (
+        {orderDetails.length === 0 && (
           <p style={{ fontSize: 13, color: "#3A2A18", opacity: 0.4 }}>ยังไม่มีบิลที่รับเงินแล้ววันนี้</p>
         )}
 
-        {data.orderDetails.map((o) => (
+        {orderDetails.map((o) => (
           <div
             key={o.id}
             style={{
@@ -852,7 +853,7 @@ function OrderDetailModal({ data, onClose }: { data: Summary; onClose: () => voi
           </div>
         ))}
 
-        {data.orderDetails.length > 0 && (
+        {orderDetails.length > 0 && (
           <div
             style={{
               display: "flex",
@@ -872,7 +873,8 @@ function OrderDetailModal({ data, onClose }: { data: Summary; onClose: () => voi
   );
 }
 
-function ExpenseDetailModal({ entries, onClose }: { entries: ExpenseEntry[]; onClose: () => void }) {
+function ExpenseDetailModal({ entries: entriesProp, onClose }: { entries: ExpenseEntry[]; onClose: () => void }) {
+  const entries = entriesProp ?? [];
   const sumCheck = entries.reduce((s, e) => s + Number(e.amount), 0);
   return (
     <div
@@ -928,7 +930,7 @@ function ExpenseDetailModal({ entries, onClose }: { entries: ExpenseEntry[]; onC
 }
 
 function DailyBarChart({
-  days,
+  days: daysProp,
   barColor = "#8B3A2B",
   todayColor = "#E8792F",
 }: {
@@ -936,6 +938,7 @@ function DailyBarChart({
   barColor?: string;
   todayColor?: string;
 }) {
+  const days = daysProp ?? [];
   const max = Math.max(1, ...days.map((d) => d.total));
   const BAR_AREA_PX = 120;
   const today = days[days.length - 1]?.date;
@@ -989,7 +992,9 @@ function DailyBarChart({
   );
 }
 
-function CompareBarChart({ incomeDays, expenseDays }: { incomeDays: DailySale[]; expenseDays: DailySale[] }) {
+function CompareBarChart({ incomeDays: incomeDaysProp, expenseDays: expenseDaysProp }: { incomeDays: DailySale[]; expenseDays: DailySale[] }) {
+  const incomeDays = incomeDaysProp ?? [];
+  const expenseDays = expenseDaysProp ?? [];
   const max = Math.max(1, ...incomeDays.map((d) => d.total), ...expenseDays.map((d) => d.total));
   const BAR_AREA_PX = 100;
   return (
@@ -1100,7 +1105,8 @@ function DonutChart({
   );
 }
 
-function ItemPie({ items, totalQty }: { items: [string, number][]; totalQty: number }) {
+function ItemPie({ items: itemsProp, totalQty = 0 }: { items: [string, number][]; totalQty: number }) {
+  const items = itemsProp ?? [];
   const top5Qty = items.reduce((sum, [, qty]) => sum + qty, 0);
   const othersQty = Math.max(0, totalQty - top5Qty);
   const segments = items.map(([name, qty], i) => ({
@@ -1184,7 +1190,8 @@ function BarRow({
   );
 }
 
-function TopItemsList({ items, unit }: { items: [string, number][]; unit: string }) {
+function TopItemsList({ items: itemsProp, unit }: { items: [string, number][]; unit: string }) {
+  const items = itemsProp ?? [];
   if (items.length === 0) return <Empty />;
   const max = Math.max(1, ...items.map(([, qty]) => qty));
   return (
