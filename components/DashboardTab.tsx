@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, Component } from "react";
 
 const CHANNEL_LABELS: Record<string, string> = {
   online_menu: "เมนูออนไลน์",
@@ -106,8 +106,35 @@ const CHANNEL_COLORS: Record<string, string> = {
   lineman: "#16A34A",
 };
 
+// ตาข่ายดักจับ error — ถ้าอะไรก็ตามในแท็บ Dashboard พังขึ้นมาระหว่าง render
+// จะโชว์ข้อความ error ตรงนี้แทนจอขาว "Application error" เดิม เห็นสาเหตุจริงได้ทันที
+class DashboardErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ borderRadius: 16, border: "1px solid #D6282833", backgroundColor: "#FCEAEA", padding: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: "#D62828", margin: "0 0 6px" }}>
+            หน้านี้มีปัญหา — คัดลอกข้อความด้านล่างนี้ส่งไปดูได้เลย
+          </p>
+          <pre style={{ fontSize: 11, color: "#3A2A18", whiteSpace: "pre-wrap", wordBreak: "break-word", margin: 0 }}>
+            {String(this.state.error.stack || this.state.error.message || this.state.error)}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 // ---------------------------------------------------------------------------
-// ตัวห่อหลัก: สลับ 3 แท็บ รายรับ / รายจ่าย / เปรียบเทียบ
+// ตัวห่อหลัก: สลับ 3 แท็บ รายรับ / รายจ่าย / เทียบรายรับ-จ่าย
 // ---------------------------------------------------------------------------
 export default function DashboardTab() {
   const [mainTab, setMainTab] = useState<"income" | "expense" | "compare">("income");
@@ -141,9 +168,11 @@ export default function DashboardTab() {
         </button>
       </div>
 
-      {mainTab === "income" && <IncomeDashboard />}
-      {mainTab === "expense" && <ExpenseDashboard />}
-      {mainTab === "compare" && <CompareDashboard />}
+      <DashboardErrorBoundary>
+        {mainTab === "income" && <IncomeDashboard />}
+        {mainTab === "expense" && <ExpenseDashboard />}
+        {mainTab === "compare" && <CompareDashboard />}
+      </DashboardErrorBoundary>
     </div>
   );
 }
@@ -369,8 +398,6 @@ function ExpenseDashboard() {
       fetch("/api/expense-summary")
         .then((res) => res.json())
         .then((json) => {
-          // เช็คว่า API ตอบ error กลับมาไหม (เช่น query ฐานข้อมูลพลาด) ถ้าใช่ อย่าเอาไปใช้ต่อ
-          // เพราะรูปแบบข้อมูลจะไม่ครบ แล้วจะทำให้หน้าเว็บพังตอน render ส่วนที่เหลือ
           if (json && json.error) {
             setSummaryError(json.error);
           } else {
@@ -527,7 +554,7 @@ function ExpenseDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// แท็บ "เปรียบเทียบ" — ใหม่ รวมข้อมูลจากทั้ง dashboard (รายรับ) และ expense (รายจ่าย)
+// แท็บ "เทียบรายรับ-จ่าย" — ใหม่ รวมข้อมูลจากทั้ง dashboard (รายรับ) และ expense (รายจ่าย)
 // ---------------------------------------------------------------------------
 function CompareDashboard() {
   const [income, setIncome] = useState<Summary | null>(null);
@@ -546,7 +573,6 @@ function CompareDashboard() {
           fetch("/api/expense-summary").then((r) => r.json()),
           fetch("/api/expense-trends").then((r) => r.json()),
         ]);
-        // ถ้า API ไหนตอบ error กลับมา อย่าเอาไปใช้ต่อ ให้โชว์ข้อความ error แทนการพยายาม render ต่อแล้วพัง
         const firstError =
           (incomeRes && incomeRes.error) ||
           (incomeTrendsRes && incomeTrendsRes.error) ||
@@ -875,13 +901,12 @@ function DailyBarChart({
   todayColor?: string;
 }) {
   const max = Math.max(1, ...days.map((d) => d.total));
-  const BAR_AREA_PX = 120; // ความสูงพื้นที่แท่งกราฟ (ไม่รวมตัวเลขและป้ายวัน)
+  const BAR_AREA_PX = 120;
   const today = days[days.length - 1]?.date;
   return (
     <div>
       <div className="flex items-end gap-2" style={{ paddingTop: 4 }}>
         {days.map((day) => {
-          // ใช้พิกเซลตรงๆ แทน % เพื่อกันไม่ให้ค่าน้อยๆ (หรือ 0) เตี้ยจนมองไม่เห็นเป็นแท่ง
           const heightPx = Math.max(6, Math.round((day.total / max) * BAR_AREA_PX));
           const isToday = day.date === today;
           return (
@@ -928,7 +953,6 @@ function DailyBarChart({
   );
 }
 
-// กราฟแท่งคู่ เทียบรายรับ (เขียว) กับรายจ่าย (แดง) รายวัน ใช้ในแท็บเปรียบเทียบ
 function CompareBarChart({ incomeDays, expenseDays }: { incomeDays: DailySale[]; expenseDays: DailySale[] }) {
   const max = Math.max(1, ...incomeDays.map((d) => d.total), ...expenseDays.map((d) => d.total));
   const BAR_AREA_PX = 100;
@@ -964,7 +988,6 @@ function CompareBarChart({ incomeDays, expenseDays }: { incomeDays: DailySale[];
   );
 }
 
-// กราฟวงกลมแบบทั่วไป: รับ segments (ป้าย, ค่า, สี) มาวาดเป็นวงแหวน + คำอธิบายสี พร้อม % ด้านข้าง
 function DonutChart({
   segments,
   size = 108,
@@ -1041,7 +1064,6 @@ function DonutChart({
   );
 }
 
-// กราฟวงกลมเฉพาะสำหรับเมนูขายดี: top5 แต่ละอันเป็น 1 ชิ้นส่วน ที่เหลือนอก top5 มัดรวมเป็น "เมนูอื่นๆ"
 function ItemPie({ items, totalQty }: { items: [string, number][]; totalQty: number }) {
   const top5Qty = items.reduce((sum, [, qty]) => sum + qty, 0);
   const othersQty = Math.max(0, totalQty - top5Qty);
@@ -1077,7 +1099,6 @@ function CompareCard({
   previous: number;
   pct: number | null;
   previousLabel: string;
-  // "up" = ขึ้นดี (เช่น รายรับ/กำไร), "down" = ลงดี (เช่น รายจ่าย)
   goodDirection?: "up" | "down";
 }) {
   const isUp = pct != null && pct > 0;
