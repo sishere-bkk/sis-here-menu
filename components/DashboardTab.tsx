@@ -107,7 +107,7 @@ const CHANNEL_COLORS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// ตัวห่อหลัก: สลับ 3 แท็บ รายรับ / รายจ่าย / เทียบรายรับ-จ่าย
+// ตัวห่อหลัก: สลับ 3 แท็บ รายรับ / รายจ่าย / เปรียบเทียบ
 // ---------------------------------------------------------------------------
 export default function DashboardTab() {
   const [mainTab, setMainTab] = useState<"income" | "expense" | "compare">("income");
@@ -137,7 +137,7 @@ export default function DashboardTab() {
             mainTab === "compare" ? "bg-forest text-sand shadow-sm" : "text-forestDark/60"
           }`}
         >
-          ⚖️ เทียบรายรับ-จ่าย
+          ⚖️ เปรียบเทียบ
         </button>
       </div>
 
@@ -358,8 +358,10 @@ function IncomeDashboard() {
 function ExpenseDashboard() {
   const [summary, setSummary] = useState<ExpenseSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(true);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [trends, setTrends] = useState<ExpenseTrends | null>(null);
   const [trendsLoading, setTrendsLoading] = useState(true);
+  const [trendsError, setTrendsError] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
 
   useEffect(() => {
@@ -367,7 +369,17 @@ function ExpenseDashboard() {
       fetch("/api/expense-summary")
         .then((res) => res.json())
         .then((json) => {
-          setSummary(json);
+          // เช็คว่า API ตอบ error กลับมาไหม (เช่น query ฐานข้อมูลพลาด) ถ้าใช่ อย่าเอาไปใช้ต่อ
+          // เพราะรูปแบบข้อมูลจะไม่ครบ แล้วจะทำให้หน้าเว็บพังตอน render ส่วนที่เหลือ
+          if (json && json.error) {
+            setSummaryError(json.error);
+          } else {
+            setSummary(json);
+          }
+          setSummaryLoading(false);
+        })
+        .catch((err) => {
+          setSummaryError(String(err));
           setSummaryLoading(false);
         });
     }
@@ -381,7 +393,15 @@ function ExpenseDashboard() {
       fetch("/api/expense-trends")
         .then((res) => res.json())
         .then((json) => {
-          setTrends(json);
+          if (json && json.error) {
+            setTrendsError(json.error);
+          } else {
+            setTrends(json);
+          }
+          setTrendsLoading(false);
+        })
+        .catch((err) => {
+          setTrendsError(String(err));
           setTrendsLoading(false);
         });
     }
@@ -391,6 +411,14 @@ function ExpenseDashboard() {
   }, []);
 
   if (summaryLoading) return <p className="text-ink/50">กำลังโหลด...</p>;
+  if (summaryError) {
+    return (
+      <div style={{ borderRadius: 16, border: "1px solid #D6282833", backgroundColor: "#FCEAEA", padding: 16 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#D62828", margin: "0 0 6px" }}>โหลดข้อมูลรายจ่ายไม่สำเร็จ</p>
+        <p style={{ fontSize: 12, color: "#3A2A18" }}>{summaryError}</p>
+      </div>
+    );
+  }
   if (!summary) return <p className="text-ink/50">โหลดข้อมูลไม่สำเร็จ</p>;
 
   // ตัดหมวด "ส่วนตัว" ออกจากยอดรวม/กราฟ เพราะไม่ใช่ต้นทุนร้าน
@@ -424,7 +452,8 @@ function ExpenseDashboard() {
 
       <Section icon="📉" title="รายจ่ายย้อนหลัง 7 วัน">
         {trendsLoading && <p className="text-xs text-ink/40">กำลังโหลด...</p>}
-        {!trendsLoading && !trends && <p className="text-xs text-ink/40">โหลดข้อมูลไม่สำเร็จ</p>}
+        {!trendsLoading && trendsError && <p className="text-xs" style={{ color: "#D62828" }}>โหลดข้อมูลไม่สำเร็จ: {trendsError}</p>}
+        {!trendsLoading && !trends && !trendsError && <p className="text-xs text-ink/40">โหลดข้อมูลไม่สำเร็จ</p>}
         {trends && <DailyBarChart days={trends.dailyExpenses} barColor="#8B3A2B" todayColor="#E8792F" />}
 
         {trends && (
@@ -498,7 +527,7 @@ function ExpenseDashboard() {
 }
 
 // ---------------------------------------------------------------------------
-// แท็บ "เทียบรายรับ-จ่าย" — ใหม่ รวมข้อมูลจากทั้ง dashboard (รายรับ) และ expense (รายจ่าย)
+// แท็บ "เปรียบเทียบ" — ใหม่ รวมข้อมูลจากทั้ง dashboard (รายรับ) และ expense (รายจ่าย)
 // ---------------------------------------------------------------------------
 function CompareDashboard() {
   const [income, setIncome] = useState<Summary | null>(null);
@@ -506,19 +535,34 @@ function CompareDashboard() {
   const [expense, setExpense] = useState<ExpenseSummary | null>(null);
   const [expenseTrends, setExpenseTrends] = useState<ExpenseTrends | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadAll() {
-      const [incomeRes, incomeTrendsRes, expenseRes, expenseTrendsRes] = await Promise.all([
-        fetch("/api/dashboard-summary").then((r) => r.json()),
-        fetch("/api/dashboard-trends").then((r) => r.json()),
-        fetch("/api/expense-summary").then((r) => r.json()),
-        fetch("/api/expense-trends").then((r) => r.json()),
-      ]);
-      setIncome(incomeRes);
-      setIncomeTrends(incomeTrendsRes);
-      setExpense(expenseRes);
-      setExpenseTrends(expenseTrendsRes);
+      try {
+        const [incomeRes, incomeTrendsRes, expenseRes, expenseTrendsRes] = await Promise.all([
+          fetch("/api/dashboard-summary").then((r) => r.json()),
+          fetch("/api/dashboard-trends").then((r) => r.json()),
+          fetch("/api/expense-summary").then((r) => r.json()),
+          fetch("/api/expense-trends").then((r) => r.json()),
+        ]);
+        // ถ้า API ไหนตอบ error กลับมา อย่าเอาไปใช้ต่อ ให้โชว์ข้อความ error แทนการพยายาม render ต่อแล้วพัง
+        const firstError =
+          (incomeRes && incomeRes.error) ||
+          (incomeTrendsRes && incomeTrendsRes.error) ||
+          (expenseRes && expenseRes.error) ||
+          (expenseTrendsRes && expenseTrendsRes.error);
+        if (firstError) {
+          setLoadError(String(firstError));
+        } else {
+          setIncome(incomeRes);
+          setIncomeTrends(incomeTrendsRes);
+          setExpense(expenseRes);
+          setExpenseTrends(expenseTrendsRes);
+        }
+      } catch (err) {
+        setLoadError(String(err));
+      }
       setLoading(false);
     }
     loadAll();
@@ -527,6 +571,14 @@ function CompareDashboard() {
   }, []);
 
   if (loading) return <p className="text-ink/50">กำลังโหลด...</p>;
+  if (loadError) {
+    return (
+      <div style={{ borderRadius: 16, border: "1px solid #D6282833", backgroundColor: "#FCEAEA", padding: 16 }}>
+        <p style={{ fontSize: 13, fontWeight: 700, color: "#D62828", margin: "0 0 6px" }}>โหลดข้อมูลไม่สำเร็จ</p>
+        <p style={{ fontSize: 12, color: "#3A2A18" }}>{loadError}</p>
+      </div>
+    );
+  }
   if (!income || !incomeTrends || !expense || !expenseTrends) {
     return <p className="text-ink/50">โหลดข้อมูลไม่สำเร็จ</p>;
   }
@@ -876,7 +928,7 @@ function DailyBarChart({
   );
 }
 
-// กราฟแท่งคู่ เทียบรายรับ (เขียว) กับรายจ่าย (แดง) รายวัน ใช้ในแท็บเทียบรายรับ-จ่าย
+// กราฟแท่งคู่ เทียบรายรับ (เขียว) กับรายจ่าย (แดง) รายวัน ใช้ในแท็บเปรียบเทียบ
 function CompareBarChart({ incomeDays, expenseDays }: { incomeDays: DailySale[]; expenseDays: DailySale[] }) {
   const max = Math.max(1, ...incomeDays.map((d) => d.total), ...expenseDays.map((d) => d.total));
   const BAR_AREA_PX = 100;
