@@ -17,7 +17,6 @@ type ExpenseEntry = {
 // ต้องตรงกับ CATEGORIES ใน app/api/expenses/upload-slip/route.ts เป๊ะๆ
 const CATEGORIES = ["วัตถุดิบ", "ค่าแรง", "ค่าแก๊ส", "ค่าบรรจุภัณฑ์", "ค่าซ่อมอุปกรณ์", "ค่าเดินทาง", "ส่วนตัว", "อื่นๆ"];
 
-// เวลาไทย (Bangkok) เสมอ ไม่ใช้ toISOString() เพราะนั่นคือเวลา UTC จะเพี้ยนวันตอนดึก
 function todayBangkok(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 }
@@ -53,13 +52,10 @@ export default function ExpenseTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  // --- คิวอัปโหลดหลายรูปพร้อมกัน ---
-  // uploadQueue = ไฟล์ที่ยังไม่ได้ประมวลผล (ไม่รวมรูปที่กำลังรีวิวอยู่ตอนนี้ใน pendingSlip)
   const [uploadQueue, setUploadQueue] = useState<File[]>([]);
   const [queueTotal, setQueueTotal] = useState(0);
   const queuePosition = queueTotal > 0 ? queueTotal - uploadQueue.length : 0;
 
-  // --- popup ยืนยันหลังอัปโหลดสลิป (แสดงทีละรูป ทีละใบตามคิว) ---
   const [pendingSlip, setPendingSlip] = useState<PendingSlip | null>(null);
   const [slipDate, setSlipDate] = useState(todayBangkok());
   const [slipCategory, setSlipCategory] = useState(CATEGORIES[0]);
@@ -67,7 +63,6 @@ export default function ExpenseTab() {
   const [slipStoreAmount, setSlipStoreAmount] = useState("");
   const [slipSubmitting, setSlipSubmitting] = useState(false);
 
-  // --- ฟอร์มบันทึกด้วยมือ ---
   const [manualDate, setManualDate] = useState(todayBangkok());
   const [manualAmount, setManualAmount] = useState("");
   const [manualCategory, setManualCategory] = useState(CATEGORIES[0]);
@@ -77,7 +72,6 @@ export default function ExpenseTab() {
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
 
-  // --- แก้ไข/ลบรายการเดิม ---
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editAmount, setEditAmount] = useState("");
@@ -111,12 +105,10 @@ export default function ExpenseTab() {
     }
   }
 
-  // ---- อัปโหลดรูปสลิป (รองรับเลือกหลายรูปพร้อมกัน) ----
   function handleUploadClick() {
     fileInputRef.current?.click();
   }
 
-  // เลือกไฟล์เสร็จ -> ตั้งคิวไว้ แล้วเริ่มประมวลผลรูปแรกทันที ที่เหลือรอในคิว
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -128,7 +120,6 @@ export default function ExpenseTab() {
     await processFile(first);
   }
 
-  // อ่าน 1 ไฟล์ด้วย AI แล้วเปิด popup ให้ยืนยัน (ยังไม่บันทึกจริง)
   async function processFile(file: File) {
     setUploading(true);
     setMessage("");
@@ -142,7 +133,6 @@ export default function ExpenseTab() {
       const data = await res.json();
       if (!res.ok) {
         setMessage("อ่านสลิปไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
-        // อ่านรูปนี้ไม่สำเร็จ ข้ามไปรูปถัดไปในคิวอัตโนมัติ (ถ้ามี)
         await advanceQueue();
         return;
       }
@@ -165,7 +155,6 @@ export default function ExpenseTab() {
     }
   }
 
-  // หยิบไฟล์ถัดไปจากคิวมาประมวลผลต่อ ถ้าคิวหมดแล้วก็เคลียร์สถานะคิว
   async function advanceQueue() {
     setUploadQueue((current) => {
       if (current.length === 0) {
@@ -221,7 +210,6 @@ export default function ExpenseTab() {
       }
       setPendingSlip(null);
       loadEntries();
-      // บันทึกรูปนี้เสร็จแล้ว ไปรูปถัดไปในคิวต่ออัตโนมัติ (ถ้ามี)
       await advanceQueue();
     } catch {
       setMessage("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
@@ -230,13 +218,11 @@ export default function ExpenseTab() {
     }
   }
 
-  // ข้ามรูปนี้ (ไม่บันทึก) แล้วไปรูปถัดไปในคิวต่อ
   async function skipPendingSlip() {
     setPendingSlip(null);
     await advanceQueue();
   }
 
-  // ---- บันทึกด้วยมือ ----
   async function submitManual() {
     if (!manualAmount) {
       setManualMessage("กรอกจำนวนเงินก่อนครับ");
@@ -280,7 +266,6 @@ export default function ExpenseTab() {
     }
   }
 
-  // ---- แก้ไข/ลบ ----
   function startEdit(entry: ExpenseEntry) {
     setEditingId(entry.id);
     setEditDate(entry.expense_date.slice(0, 10));
@@ -354,9 +339,8 @@ export default function ExpenseTab() {
     }
   }
 
-  // ---- คำนวณสรุปเดือนนี้ + วันที่ยังไม่มีข้อมูล (7 วันล่าสุด) ----
   const today = todayBangkok();
-  const thisMonthPrefix = today.slice(0, 7); // YYYY-MM
+  const thisMonthPrefix = today.slice(0, 7);
   const monthEntries = (entries ?? []).filter((e) => e.expense_date.slice(0, 7) === thisMonthPrefix);
   const monthTotal = monthEntries.reduce((s, e) => s + Number(e.amount), 0);
   const monthCount = monthEntries.length;
@@ -366,8 +350,6 @@ export default function ExpenseTab() {
 
   return (
     <div style={{ maxWidth: 420, paddingBottom: 40 }}>
-      {/* ไม่ใส่ capture="environment" แล้ว เพื่อให้กดแล้วเลือกได้ทั้งถ่ายรูปใหม่ หรือเลือกจากคลังรูปเดิม
-          ใส่ multiple ไว้ด้วย เพื่อเลือกได้หลายรูปพร้อมกันตอนเลือกจากคลังรูป (อัปทีละหลายใบ) */}
       <input
         type="file"
         accept="image/*"
@@ -454,7 +436,11 @@ export default function ExpenseTab() {
               type="date"
               value={slipDate}
               onChange={(e) => setSlipDate(e.target.value)}
-              style={{ marginBottom: 12, display: "block", width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "10px 12px", fontSize: 14 }}
+              style={{
+                marginBottom: 12, display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
+                boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
+                border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
+              }}
             />
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "10px 12px", borderRadius: 10, backgroundColor: "#E8792F14" }}>
@@ -522,7 +508,11 @@ export default function ExpenseTab() {
           type="date"
           value={manualDate}
           onChange={(e) => setManualDate(e.target.value)}
-          style={{ marginBottom: 10, display: "block", width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "10px 12px", fontSize: 14 }}
+          style={{
+            marginBottom: 10, display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
+            boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
+            border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
+          }}
         />
 
         <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>
@@ -610,7 +600,11 @@ export default function ExpenseTab() {
                 <label style={{ fontSize: 11, color: "#3A2A1880", display: "block", marginBottom: 3 }}>วันที่</label>
                 <input
                   type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
-                  style={{ marginBottom: 6, display: "block", width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "8px 10px", fontSize: 13 }}
+                  style={{
+                    marginBottom: 6, display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
+                    boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
+                    border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "8px 10px", fontSize: 13
+                  }}
                 />
                 <label style={{ fontSize: 11, color: "#3A2A1880", display: "block", marginBottom: 3 }}>จำนวนเงิน (บาท)</label>
                 <input
