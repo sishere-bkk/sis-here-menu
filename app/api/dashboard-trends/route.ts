@@ -3,87 +3,144 @@ import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const BANGKOK_OFFSET_MS = 7 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const THAI_DAY_LABELS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
-function todayBangkok(): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
+// แปลงเวลาปัจจุบัน (utc ms) ให้ได้ ปี/เดือน/วัน ตามเวลากรุงเทพ
+function getBangkokYMD(utcMs: number) {
+  const bkk = new Date(utcMs + BANGKOK_OFFSET_MS);
+  return {
+    y: bkk.getUTCFullYear(),
+    m: bkk.getUTCMonth(), // 0-11
+    d: bkk.getUTCDate()
+  };
 }
 
-function daysAgoBangkok(n: number): string {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() - n);
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(d);
+// เวลาเริ่มต้นของวันนั้นๆ (เที่ยงคืนตามเวลากรุงเทพ) แปลงกลับเป็น utc ms
+function startOfBangkokDayUtcMs(y: number, m: number, d: number) {
+  return Date.UTC(y, m, d) - BANGKOK_OFFSET_MS;
 }
 
-function labelTh(dateStr: string): string {
-  const d = new Date(dateStr + "T12:00:00+07:00");
-  return new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short" }).format(d);
+// ถอยหลัง n เดือนจาก ปี/เดือน ที่กำหนด (จัดการข้ามปีให้ด้วย)
+function shiftMonth(y: number, m: number, delta: number) {
+  const total = y * 12 + m + delta;
+  const ny = Math.floor(total / 12);
+  const nm = ((total % 12) + 12) % 12;
+  return { y: ny, m: nm };
+}
+
+// จำนวนวันในเดือนนั้นๆ (m คือ 0-11)
+function daysInMonth(y: number, m: number) {
+  return new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+}
+
+function pctChange(current: number, previous: number): number | null {
+  if (previous === 0) return current === 0 ? 0 : null; // null = ไม่มีฐานเทียบ (เดือน/สัปดาห์ก่อนไม่มียอดเลย)
+  return ((current - previous) / previous) * 100;
 }
 
 export async function GET() {
-  const today = todayBangkok();
-  const monthPrefix = today.slice(0, 7);
-  const lastMonthDate = new Date(today + "T12:00:00+07:00");
-  lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
-  const lastMonthPrefix = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" })
-    .format(lastMonthDate)
-    .slice(0, 7);
-  const dayOfMonth = Number(today.slice(8, 10));
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+    process.env.SUPABASE_SERVICE_ROLE_KEY as string
+  );
 
-  const from40 = daysAgoBangkok(40);
-  const { data: rows, error } = await supabase
-    .from("expenses")
-    .select("amount, category, expense_date")
-    .gte("expense_date", from40)
-    .lte("expense_date", today);
+  const nowMs = Date.now();
+  const today = getBangkokYMD(nowMs);
+  const todayStartMs = startOfBangkokDayUtcMs(today.y, today.m, today.d);
+  const tomorrowStartMs = todayStartMs + DAY_MS;
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  const allRows = rows ?? [];
+  const prevMonth = shiftMonth(today.y, today.m, -1);
+  const fetchStartMs = startOfBangkokDayUtcMs(prevMonth.y, prevMonth.m, 1);
 
-  const last7Dates = Array.from({ length: 7 }, (_, i) => daysAgoBangkok(6 - i));
-  const dailyExpenses = last7Dates.map((date) => ({
-    date,
-    label: labelTh(date),
-    total: allRows.filter((r) => r.expense_date === date).reduce((s, r) => s + Number(r.amount), 0),
-  }));
+  // ดึงออเดอร์ตั้งแต่ต้นเดือนก่อนหน้า จนถึงสิ้นวันนี้ (ครอบคลุมทั้งกราฟ 7 วัน / เทียบสัปดาห์ / เทียบเดือน)
+  const { data: orders, error } = await supabaseAdmin
+    .from("orders")
+    .select("total_amount, status, created_at, channel")
+    .eq("status", "accepted")
+    .gte("created_at", new Date(fetchStartMs).toISOString())
+    .lt("created_at", new Date(tomorrowStartMs).toISOString());
 
-  const thisWeekDates = last7Dates;
-  const lastWeekDates = Array.from({ length: 7 }, (_, i) => daysAgoBangkok(13 - i));
-  const thisWeekTotal = allRows.filter((r) => thisWeekDates.includes(r.expense_date)).reduce((s, r) => s + Number(r.amount), 0);
-  const lastWeekTotal = allRows.filter((r) => lastWeekDates.includes(r.expense_date)).reduce((s, r) => s + Number(r.amount), 0);
-  const weekChangePct = lastWeekTotal > 0 ? ((thisWeekTotal - lastWeekTotal) / lastWeekTotal) * 100 : null;
-
-  const thisMonthTotal = allRows
-    .filter((r) => r.expense_date.slice(0, 7) === monthPrefix)
-    .reduce((s, r) => s + Number(r.amount), 0);
-  const lastMonthSamePeriodTotal = allRows
-    .filter((r) => r.expense_date.slice(0, 7) === lastMonthPrefix && Number(r.expense_date.slice(8, 10)) <= dayOfMonth)
-    .reduce((s, r) => s + Number(r.amount), 0);
-  const monthChangePct =
-    lastMonthSamePeriodTotal > 0 ? ((thisMonthTotal - lastMonthSamePeriodTotal) / lastMonthSamePeriodTotal) * 100 : null;
-
-  const weekByCategory: Record<string, number> = {};
-  for (const r of allRows.filter((r) => thisWeekDates.includes(r.expense_date))) {
-    weekByCategory[r.category] = (weekByCategory[r.category] ?? 0) + Number(r.amount);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  const monthByCategory: Record<string, number> = {};
-  for (const r of allRows.filter((r) => r.expense_date.slice(0, 7) === monthPrefix)) {
-    monthByCategory[r.category] = (monthByCategory[r.category] ?? 0) + Number(r.amount);
+
+  // รวมยอดขายแยกตามวัน (key = "y-m-d" ตามเวลากรุงเทพ)
+  const dailyTotals = new Map<string, number>();
+  for (const o of orders ?? []) {
+    const createdMs = new Date(o.created_at as string).getTime();
+    const { y, m, d } = getBangkokYMD(createdMs);
+    const key = `${y}-${m}-${d}`;
+    dailyTotals.set(key, (dailyTotals.get(key) ?? 0) + (o.total_amount ?? 0));
+  }
+
+  // สร้างกราฟยอดขายย้อนหลัง 7 วัน (เก่าสุด -> วันนี้)
+  const dailySales: { date: string; label: string; total: number }[] = [];
+  for (let offset = 6; offset >= 0; offset--) {
+    const dayStartMs = todayStartMs - offset * DAY_MS;
+    const { y, m, d } = getBangkokYMD(dayStartMs);
+    const key = `${y}-${m}-${d}`;
+    const weekday = new Date(Date.UTC(y, m, d)).getUTCDay();
+    dailySales.push({
+      date: `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+      label: THAI_DAY_LABELS[weekday],
+      total: dailyTotals.get(key) ?? 0
+    });
+  }
+
+  const thisWeekTotal = dailySales.reduce((sum, day) => sum + day.total, 0);
+
+  // ยอดขายแยกตามช่องทาง ของสัปดาห์นี้ (7 วันล่าสุด) และเดือนนี้ (วันที่ 1 ถึงวันนี้)
+  const weekStartMs = todayStartMs - 6 * DAY_MS;
+  const monthStartMs = startOfBangkokDayUtcMs(today.y, today.m, 1);
+  const weekByChannel: Record<string, number> = {};
+  const monthByChannel: Record<string, number> = {};
+  for (const o of orders ?? []) {
+    const createdMs = new Date(o.created_at as string).getTime();
+    const ch = (o as any).channel ?? "online_menu";
+    if (createdMs >= weekStartMs) {
+      weekByChannel[ch] = (weekByChannel[ch] ?? 0) + (o.total_amount ?? 0);
+    }
+    if (createdMs >= monthStartMs) {
+      monthByChannel[ch] = (monthByChannel[ch] ?? 0) + (o.total_amount ?? 0);
+    }
+  }
+
+  // สัปดาห์ก่อนหน้า = 7 วันก่อนช่วง 7 วันล่าสุด (วันที่ 8-14 วันก่อนวันนี้)
+  let lastWeekTotal = 0;
+  for (let offset = 13; offset >= 7; offset--) {
+    const dayStartMs = todayStartMs - offset * DAY_MS;
+    const { y, m, d } = getBangkokYMD(dayStartMs);
+    lastWeekTotal += dailyTotals.get(`${y}-${m}-${d}`) ?? 0;
+  }
+
+  // เดือนนี้ (ตั้งแต่วันที่ 1 ถึงวันนี้) เทียบกับเดือนก่อนหน้าช่วงจำนวนวันเท่ากัน (เทียบแบบยุติธรรม ไม่เอาทั้งเดือนมาเทียบกับเดือนที่ยังไม่จบ)
+  let thisMonthTotal = 0;
+  let lastMonthSamePeriodTotal = 0;
+  const lastMonthDayCap = Math.min(today.d, daysInMonth(prevMonth.y, prevMonth.m));
+  for (const [key, amount] of dailyTotals.entries()) {
+    const [yStr, mStr, dStr] = key.split("-");
+    const y = Number(yStr);
+    const m = Number(mStr);
+    const d = Number(dStr);
+    if (y === today.y && m === today.m && d <= today.d) {
+      thisMonthTotal += amount;
+    } else if (y === prevMonth.y && m === prevMonth.m && d <= lastMonthDayCap) {
+      lastMonthSamePeriodTotal += amount;
+    }
   }
 
   return NextResponse.json({
-    dailyExpenses,
+    dailySales,
     thisWeekTotal,
     lastWeekTotal,
-    weekChangePct,
+    weekChangePct: pctChange(thisWeekTotal, lastWeekTotal),
     thisMonthTotal,
     lastMonthSamePeriodTotal,
-    monthChangePct,
-    monthCompareDayCount: dayOfMonth,
-    weekByCategory,
-    monthByCategory,
+    monthChangePct: pctChange(thisMonthTotal, lastMonthSamePeriodTotal),
+    monthCompareDayCount: lastMonthDayCap,
+    weekByChannel,
+    monthByChannel
   });
 }
