@@ -55,9 +55,10 @@ export async function GET() {
   const fetchStartMs = startOfBangkokDayUtcMs(prevMonth.y, prevMonth.m, 1);
 
   // ดึงออเดอร์ตั้งแต่ต้นเดือนก่อนหน้า จนถึงสิ้นวันนี้ (ครอบคลุมทั้งกราฟ 7 วัน / เทียบสัปดาห์ / เทียบเดือน)
+  // เพิ่ม fee เข้ามาด้วย เพื่อรวมเป็นค่าคอมมิชชั่น (ออเดอร์ที่ยังไม่กระทบยอด fee จะเป็น 0/null อยู่แล้ว ไม่ต้องกรองเพิ่ม)
   const { data: orders, error } = await supabaseAdmin
     .from("orders")
-    .select("total_amount, status, created_at, channel")
+    .select("total_amount, status, created_at, channel, fee")
     .eq("status", "accepted")
     .gte("created_at", new Date(fetchStartMs).toISOString())
     .lt("created_at", new Date(tomorrowStartMs).toISOString());
@@ -66,13 +67,15 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // รวมยอดขายแยกตามวัน (key = "y-m-d" ตามเวลากรุงเทพ)
+  // รวมยอดขาย + ค่าคอมมิชชั่น แยกตามวัน (key = "y-m-d" ตามเวลากรุงเทพ)
   const dailyTotals = new Map<string, number>();
+  const dailyFees = new Map<string, number>();
   for (const o of orders ?? []) {
     const createdMs = new Date(o.created_at as string).getTime();
     const { y, m, d } = getBangkokYMD(createdMs);
     const key = `${y}-${m}-${d}`;
     dailyTotals.set(key, (dailyTotals.get(key) ?? 0) + (o.total_amount ?? 0));
+    dailyFees.set(key, (dailyFees.get(key) ?? 0) + Number((o as any).fee ?? 0));
   }
 
   // สร้างกราฟยอดขายย้อนหลัง 7 วัน (เก่าสุด -> วันนี้)
@@ -91,33 +94,45 @@ export async function GET() {
 
   const thisWeekTotal = dailySales.reduce((sum, day) => sum + day.total, 0);
 
+  // ค่าคอมมิชชั่นวันนี้ (ไว้ใช้คำนวณกำไรวันนี้ในหน้าเปรียบเทียบ)
+  const todayFee = dailyFees.get(`${today.y}-${today.m}-${today.d}`) ?? 0;
+
   // ยอดขายแยกตามช่องทาง ของสัปดาห์นี้ (7 วันล่าสุด) และเดือนนี้ (วันที่ 1 ถึงวันนี้)
   const weekStartMs = todayStartMs - 6 * DAY_MS;
   const monthStartMs = startOfBangkokDayUtcMs(today.y, today.m, 1);
   const weekByChannel: Record<string, number> = {};
   const monthByChannel: Record<string, number> = {};
+  let thisWeekFee = 0;
+  let thisMonthFee = 0;
   for (const o of orders ?? []) {
     const createdMs = new Date(o.created_at as string).getTime();
     const ch = (o as any).channel ?? "online_menu";
+    const fee = Number((o as any).fee ?? 0);
     if (createdMs >= weekStartMs) {
       weekByChannel[ch] = (weekByChannel[ch] ?? 0) + (o.total_amount ?? 0);
+      thisWeekFee += fee;
     }
     if (createdMs >= monthStartMs) {
       monthByChannel[ch] = (monthByChannel[ch] ?? 0) + (o.total_amount ?? 0);
+      thisMonthFee += fee;
     }
   }
 
   // สัปดาห์ก่อนหน้า = 7 วันก่อนช่วง 7 วันล่าสุด (วันที่ 8-14 วันก่อนวันนี้)
   let lastWeekTotal = 0;
+  let lastWeekFee = 0;
   for (let offset = 13; offset >= 7; offset--) {
     const dayStartMs = todayStartMs - offset * DAY_MS;
     const { y, m, d } = getBangkokYMD(dayStartMs);
-    lastWeekTotal += dailyTotals.get(`${y}-${m}-${d}`) ?? 0;
+    const key = `${y}-${m}-${d}`;
+    lastWeekTotal += dailyTotals.get(key) ?? 0;
+    lastWeekFee += dailyFees.get(key) ?? 0;
   }
 
   // เดือนนี้ (ตั้งแต่วันที่ 1 ถึงวันนี้) เทียบกับเดือนก่อนหน้าช่วงจำนวนวันเท่ากัน (เทียบแบบยุติธรรม ไม่เอาทั้งเดือนมาเทียบกับเดือนที่ยังไม่จบ)
   let thisMonthTotal = 0;
   let lastMonthSamePeriodTotal = 0;
+  let lastMonthSamePeriodFee = 0;
   const lastMonthDayCap = Math.min(today.d, daysInMonth(prevMonth.y, prevMonth.m));
   for (const [key, amount] of dailyTotals.entries()) {
     const [yStr, mStr, dStr] = key.split("-");
@@ -128,6 +143,7 @@ export async function GET() {
       thisMonthTotal += amount;
     } else if (y === prevMonth.y && m === prevMonth.m && d <= lastMonthDayCap) {
       lastMonthSamePeriodTotal += amount;
+      lastMonthSamePeriodFee += dailyFees.get(key) ?? 0;
     }
   }
 
@@ -141,6 +157,12 @@ export async function GET() {
     monthChangePct: pctChange(thisMonthTotal, lastMonthSamePeriodTotal),
     monthCompareDayCount: lastMonthDayCap,
     weekByChannel,
-    monthByChannel
+    monthByChannel,
+    // ค่าคอมมิชชั่น (จากตารางกระทบยอด) — ไว้ให้หน้าเปรียบเทียบดึงไปนับเป็นรายจ่ายเพิ่ม ไม่ต้องคีย์ซ้ำ
+    todayFee,
+    thisWeekFee,
+    lastWeekFee,
+    thisMonthFee,
+    lastMonthSamePeriodFee
   });
 }
