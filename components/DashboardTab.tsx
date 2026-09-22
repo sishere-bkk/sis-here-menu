@@ -53,6 +53,12 @@ type Trends = {
   monthCompareDayCount: number;
   weekByChannel: Record<string, number>;
   monthByChannel: Record<string, number>;
+  // ค่าคอมมิชชั่นจากตารางกระทบยอด (Grab/LINE MAN) — ไว้นับรวมเป็นรายจ่ายในหน้าเปรียบเทียบ
+  todayFee?: number;
+  thisWeekFee?: number;
+  lastWeekFee?: number;
+  thisMonthFee?: number;
+  lastMonthSamePeriodFee?: number;
 };
 
 type TopItemsData = {
@@ -594,20 +600,27 @@ function CompareDashboard() {
   const businessTodayExpense = (expense.todayEntries ?? [])
     .filter((e) => e.category !== PERSONAL_CATEGORY)
     .reduce((s, e) => s + Number(e.amount), 0);
-  const todayProfit = income.totalSales - businessTodayExpense;
+  const todayFee = incomeTrends.todayFee ?? 0;
+  const todayExpenseWithFee = businessTodayExpense + todayFee;
+  const todayProfit = income.totalSales - todayExpenseWithFee;
 
-  const weekProfit = incomeTrends.thisWeekTotal - expenseTrends.thisWeekTotal;
-  const lastWeekProfit = incomeTrends.lastWeekTotal - expenseTrends.lastWeekTotal;
+  const weekFee = incomeTrends.thisWeekFee ?? 0;
+  const lastWeekFee = incomeTrends.lastWeekFee ?? 0;
+  const weekProfit = incomeTrends.thisWeekTotal - expenseTrends.thisWeekTotal - weekFee;
+  const lastWeekProfit = incomeTrends.lastWeekTotal - expenseTrends.lastWeekTotal - lastWeekFee;
   const weekProfitPct = lastWeekProfit !== 0 ? ((weekProfit - lastWeekProfit) / Math.abs(lastWeekProfit)) * 100 : null;
 
-  const monthProfit = incomeTrends.thisMonthTotal - expenseTrends.thisMonthTotal;
-  const lastMonthProfit = incomeTrends.lastMonthSamePeriodTotal - expenseTrends.lastMonthSamePeriodTotal;
+  const monthFee = incomeTrends.thisMonthFee ?? 0;
+  const lastMonthFee = incomeTrends.lastMonthSamePeriodFee ?? 0;
+  const monthProfit = incomeTrends.thisMonthTotal - expenseTrends.thisMonthTotal - monthFee;
+  const lastMonthProfit = incomeTrends.lastMonthSamePeriodTotal - expenseTrends.lastMonthSamePeriodTotal - lastMonthFee;
   const monthProfitPct =
     lastMonthProfit !== 0 ? ((monthProfit - lastMonthProfit) / Math.abs(lastMonthProfit)) * 100 : null;
 
-  const monthBusinessExpense = Object.entries(expenseTrends.monthByCategory ?? {})
-    .filter(([cat]) => cat !== PERSONAL_CATEGORY)
-    .reduce((s, [, v]) => s + v, 0);
+  const monthBusinessExpense =
+    Object.entries(expenseTrends.monthByCategory ?? {})
+      .filter(([cat]) => cat !== PERSONAL_CATEGORY)
+      .reduce((s, [, v]) => s + v, 0) + monthFee;
   const monthIncomeForDonut = incomeTrends.thisMonthTotal || 1;
   const monthProfitForDonut = Math.max(0, monthIncomeForDonut - monthBusinessExpense);
 
@@ -625,14 +638,21 @@ function CompareDashboard() {
         dailyLast7Days: incomeTrends!.dailySales,
       },
       expense: {
-        today: businessTodayExpense,
-        thisWeek: expenseTrends!.thisWeekTotal,
-        lastWeek: expenseTrends!.lastWeekTotal,
-        thisMonth: expenseTrends!.thisMonthTotal,
-        lastMonthSamePeriod: expenseTrends!.lastMonthSamePeriodTotal,
+        today: todayExpenseWithFee,
+        thisWeek: expenseTrends!.thisWeekTotal + weekFee,
+        lastWeek: expenseTrends!.lastWeekTotal + lastWeekFee,
+        thisMonth: expenseTrends!.thisMonthTotal + monthFee,
+        lastMonthSamePeriod: expenseTrends!.lastMonthSamePeriodTotal + lastMonthFee,
         byCategoryAllTime: expense!.allTimeByCategory ?? {},
         dailyLast7Days: expenseTrends!.dailyExpenses,
-        note: "ยอดรายจ่ายทั้งหมดนี้ไม่รวมหมวด ส่วนตัว เพราะไม่ใช่ต้นทุนร้าน",
+        commissionFee: {
+          today: todayFee,
+          thisWeek: weekFee,
+          lastWeek: lastWeekFee,
+          thisMonth: monthFee,
+          lastMonthSamePeriod: lastMonthFee,
+        },
+        note: "ยอดรายจ่ายทั้งหมดนี้ไม่รวมหมวด ส่วนตัว แต่รวมค่าคอมมิชชั่นจากตารางกระทบยอดด้วยแล้ว",
       },
       profit: {
         today: todayProfit,
@@ -666,7 +686,8 @@ function CompareDashboard() {
           {todayProfit.toLocaleString()} บาท
         </div>
         <div style={{ fontSize: 11, color: "#3A2A1899", marginTop: 2 }}>
-          รายรับ {income.totalSales.toLocaleString()} · รายจ่าย {businessTodayExpense.toLocaleString()}
+          รายรับ {income.totalSales.toLocaleString()} · รายจ่าย {todayExpenseWithFee.toLocaleString()}
+          {todayFee > 0 ? ` (รวมค่าคอม ${todayFee.toLocaleString()})` : ""}
         </div>
       </div>
 
