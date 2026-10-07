@@ -91,7 +91,7 @@ export default function ExpenseTab() {
     try {
       const from = daysAgoBangkok(35);
       const to = todayBangkok();
-      const res = await fetch(`/api/expenses?from=${from}&to=${to}`);
+      const res = await fetch(`/api/expenses?from=${from}&to=${to}`, { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         setMessage("โหลดไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
