@@ -17,6 +17,7 @@ type ExpenseEntry = {
 // ต้องตรงกับ CATEGORIES ใน app/api/expenses/upload-slip/route.ts เป๊ะๆ
 const CATEGORIES = ["วัตถุดิบ", "ค่าแรง", "ค่าแก๊ส", "ค่าบรรจุภัณฑ์", "ค่าซ่อมอุปกรณ์", "ค่าเดินทาง", "ส่วนตัว", "อื่นๆ"];
 
+// เวลาไทย (Bangkok) เสมอ ไม่ใช้ toISOString() เพราะนั่นคือเวลา UTC จะเพี้ยนวันตอนดึก
 function todayBangkok(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date());
 }
@@ -25,6 +26,70 @@ function daysAgoBangkok(n: number): string {
   const d = new Date();
   d.setUTCDate(d.getUTCDate() - n);
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(d);
+}
+
+// ช่องเลือกวันที่ ต้องมีสไตล์พวกนี้ครบ ไม่งั้นบน iPhone กล่องจะล้นจอ
+const dateInputStyle: React.CSSProperties = {
+  display: "block",
+  width: "100%",
+  minWidth: 0,
+  maxWidth: "100%",
+  boxSizing: "border-box",
+  WebkitAppearance: "none",
+  appearance: "none",
+  backgroundColor: "#fff",
+  borderRadius: 8,
+  border: "1px solid #E8792F26",
+  padding: "10px 12px",
+  fontSize: 14,
+  height: 42,
+};
+
+function diffDaysYMD(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  return Math.round((Date.UTC(ay, am - 1, ad) - Date.UTC(by, bm - 1, bd)) / 86400000);
+}
+
+// วันที่ (เวลาไทย) ที่รายการถูกบันทึกลงระบบ
+function createdDayBangkok(createdAt: string): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok" }).format(new Date(createdAt));
+}
+
+// ย่อรูปก่อนส่ง (เร็วขึ้น ไม่เกินขนาดที่เซิร์ฟเวอร์รับ และแปลงรูป HEIC ของ iPhone เป็น JPG ให้ด้วย)
+async function prepareImage(file: File): Promise<{ base64: string; mime: string }> {
+  const readOriginal = (): Promise<{ base64: string; mime: string }> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ base64: (reader.result as string).split(",")[1], mime: file.type || "image/jpeg" });
+      reader.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
+      reader.readAsDataURL(file);
+    });
+
+  try {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("เปิดรูปไม่ได้"));
+      img.src = url;
+    });
+    const maxSide = 1800;
+    const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(img.naturalWidth * scale);
+    canvas.height = Math.round(img.naturalHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no canvas");
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(url);
+    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+    return { base64: dataUrl.split(",")[1], mime: "image/jpeg" };
+  } catch {
+    return readOriginal();
+  }
 }
 
 function formatRaw(value: number) {
@@ -42,6 +107,7 @@ type PendingSlip = {
   note: string | null;
   suggestedCategory: string | null;
   slipImageUrl: string;
+  dateWarning: string | null;
 };
 
 export default function ExpenseTab() {
@@ -52,17 +118,23 @@ export default function ExpenseTab() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
+  // --- คิวอัปโหลดหลายรูปพร้อมกัน ---
+  // uploadQueue = ไฟล์ที่ยังไม่ได้ประมวลผล (ไม่รวมรูปที่กำลังรีวิวอยู่ตอนนี้ใน pendingSlip)
+  const queueRef = useRef<File[]>([]);
   const [uploadQueue, setUploadQueue] = useState<File[]>([]);
   const [queueTotal, setQueueTotal] = useState(0);
   const queuePosition = queueTotal > 0 ? queueTotal - uploadQueue.length : 0;
 
+  // --- popup ยืนยันหลังอัปโหลดสลิป (แสดงทีละรูป ทีละใบตามคิว) ---
   const [pendingSlip, setPendingSlip] = useState<PendingSlip | null>(null);
   const [slipDate, setSlipDate] = useState(todayBangkok());
-  const [slipCategory, setSlipCategory] = useState(CATEGORIES[0]);
+  const [slipCategory, setSlipCategory] = useState(""); // ว่าง = AI เดาไม่ได้ ต้องเลือกเอง
+  const [slipAmount, setSlipAmount] = useState("");
   const [slipSplit, setSlipSplit] = useState(false);
   const [slipStoreAmount, setSlipStoreAmount] = useState("");
   const [slipSubmitting, setSlipSubmitting] = useState(false);
 
+  // --- ฟอร์มบันทึกด้วยมือ ---
   const [manualDate, setManualDate] = useState(todayBangkok());
   const [manualAmount, setManualAmount] = useState("");
   const [manualCategory, setManualCategory] = useState(CATEGORIES[0]);
@@ -72,6 +144,7 @@ export default function ExpenseTab() {
   const [manualSubmitting, setManualSubmitting] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
 
+  // --- แก้ไข/ลบรายการเดิม ---
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editDate, setEditDate] = useState("");
   const [editAmount, setEditAmount] = useState("");
@@ -89,9 +162,8 @@ export default function ExpenseTab() {
     setLoading(true);
     setMessage("");
     try {
-      const from = daysAgoBangkok(35);
-      const to = todayBangkok();
-      const res = await fetch(`/api/expenses?from=${from}&to=${to}`, { cache: "no-store" });
+      // ดึงทุกรายการ (ไม่กรองวันที่) เพื่อไม่ให้รายการที่วันที่ผิดหายไปจากหน้านี้
+      const res = await fetch("/api/expenses", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) {
         setMessage("โหลดไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
@@ -105,10 +177,12 @@ export default function ExpenseTab() {
     }
   }
 
+  // ---- อัปโหลดรูปสลิป (รองรับเลือกหลายรูปพร้อมกัน) ----
   function handleUploadClick() {
     fileInputRef.current?.click();
   }
 
+  // เลือกไฟล์เสร็จ -> ตั้งคิวไว้ แล้วเริ่มประมวลผลรูปแรกทันที ที่เหลือรอในคิว
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? []);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -116,23 +190,26 @@ export default function ExpenseTab() {
 
     setQueueTotal(files.length);
     const [first, ...rest] = files;
+    queueRef.current = rest;
     setUploadQueue(rest);
     await processFile(first);
   }
 
+  // อ่าน 1 ไฟล์ด้วย AI แล้วเปิด popup ให้ยืนยัน (ยังไม่บันทึกจริง)
   async function processFile(file: File) {
     setUploading(true);
     setMessage("");
     try {
-      const base64 = await fileToBase64(file);
+      const prepared = await prepareImage(file);
       const res = await fetch("/api/expenses/upload-slip", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64: base64, mimeType: file.type }),
+        body: JSON.stringify({ imageBase64: prepared.base64, mimeType: prepared.mime }),
       });
       const data = await res.json();
       if (!res.ok) {
         setMessage("อ่านสลิปไม่สำเร็จ: " + (data.error ?? "ไม่ทราบสาเหตุ"));
+        // อ่านรูปนี้ไม่สำเร็จ ข้ามไปรูปถัดไปในคิวอัตโนมัติ (ถ้ามี)
         await advanceQueue();
         return;
       }
@@ -142,9 +219,11 @@ export default function ExpenseTab() {
         note: data.note,
         suggestedCategory: data.suggestedCategory,
         slipImageUrl: data.slipImageUrl,
+        dateWarning: data.dateWarning ?? null,
       });
       setSlipDate(data.date ?? todayBangkok());
-      setSlipCategory(data.suggestedCategory ?? CATEGORIES[0]);
+      setSlipCategory(data.suggestedCategory ?? "");
+      setSlipAmount(data.amount != null ? String(data.amount) : "");
       setSlipSplit(false);
       setSlipStoreAmount("");
     } catch {
@@ -155,36 +234,31 @@ export default function ExpenseTab() {
     }
   }
 
+  // หยิบไฟล์ถัดไปจากคิวมาประมวลผลต่อ ถ้าคิวหมดแล้วก็เคลียร์สถานะคิว
   async function advanceQueue() {
-    setUploadQueue((current) => {
-      if (current.length === 0) {
-        setQueueTotal(0);
-        return current;
-      }
-      const [next, ...rest] = current;
-      processFile(next);
-      return rest;
-    });
-  }
-
-  function fileToBase64(file: File): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(",")[1]);
-      };
-      reader.onerror = () => reject(new Error("อ่านไฟล์ไม่สำเร็จ"));
-      reader.readAsDataURL(file);
-    });
+    const next = queueRef.current.shift();
+    setUploadQueue([...queueRef.current]);
+    if (!next) {
+      setQueueTotal(0);
+      return;
+    }
+    await processFile(next);
   }
 
   async function confirmPendingSlip() {
     if (!pendingSlip) return;
-    const totalAmount = pendingSlip.amount ?? 0;
+    const totalAmount = Number(slipAmount || 0);
     const amountToSave = slipSplit ? Number(slipStoreAmount || 0) : totalAmount;
     if (!amountToSave || amountToSave <= 0) {
       setMessage("กรอกจำนวนเงินให้ถูกต้องก่อนบันทึก");
+      return;
+    }
+    if (!slipCategory) {
+      setMessage("เลือกหมวดก่อนบันทึกครับ");
+      return;
+    }
+    if (!slipDate) {
+      setMessage("เลือกวันที่ก่อนบันทึกครับ");
       return;
     }
     setSlipSubmitting(true);
@@ -210,6 +284,7 @@ export default function ExpenseTab() {
       }
       setPendingSlip(null);
       loadEntries();
+      // บันทึกรูปนี้เสร็จแล้ว ไปรูปถัดไปในคิวต่ออัตโนมัติ (ถ้ามี)
       await advanceQueue();
     } catch {
       setMessage("บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง");
@@ -218,11 +293,13 @@ export default function ExpenseTab() {
     }
   }
 
+  // ข้ามรูปนี้ (ไม่บันทึก) แล้วไปรูปถัดไปในคิวต่อ
   async function skipPendingSlip() {
     setPendingSlip(null);
     await advanceQueue();
   }
 
+  // ---- บันทึกด้วยมือ ----
   async function submitManual() {
     if (!manualAmount) {
       setManualMessage("กรอกจำนวนเงินก่อนครับ");
@@ -266,6 +343,7 @@ export default function ExpenseTab() {
     }
   }
 
+  // ---- แก้ไข/ลบ ----
   function startEdit(entry: ExpenseEntry) {
     setEditingId(entry.id);
     setEditDate(entry.expense_date.slice(0, 10));
@@ -339,8 +417,9 @@ export default function ExpenseTab() {
     }
   }
 
+  // ---- คำนวณสรุปเดือนนี้ + วันที่ยังไม่มีข้อมูล (7 วันล่าสุด) ----
   const today = todayBangkok();
-  const thisMonthPrefix = today.slice(0, 7);
+  const thisMonthPrefix = today.slice(0, 7); // YYYY-MM
   const monthEntries = (entries ?? []).filter((e) => e.expense_date.slice(0, 7) === thisMonthPrefix);
   const monthTotal = monthEntries.reduce((s, e) => s + Number(e.amount), 0);
   const monthCount = monthEntries.length;
@@ -348,8 +427,21 @@ export default function ExpenseTab() {
   const last7Dates = Array.from({ length: 7 }, (_, i) => daysAgoBangkok(6 - i));
   const missingDays = last7Dates.filter((d) => !(entries ?? []).some((e) => e.expense_date.slice(0, 10) === d));
 
+  // รายการล่าสุด = เรียงตาม "เวลาที่บันทึก" ไม่ใช่ตามวันที่ของรายการ เพื่อให้ของที่เพิ่งบันทึกโผล่เสมอ แม้วันที่จะผิด
+  const recentEntries = [...(entries ?? [])]
+    .sort((a, b) => (a.created_at < b.created_at ? 1 : a.created_at > b.created_at ? -1 : b.id - a.id))
+    .slice(0, 40);
+
+  // วันที่ของรายการห่างจากวันที่บันทึกมากผิดปกติ (หรืออยู่ในอนาคต) = น่าจะอ่านวันที่ผิด
+  function isSuspicious(e: ExpenseEntry): boolean {
+    const diff = diffDaysYMD(createdDayBangkok(e.created_at), e.expense_date.slice(0, 10));
+    return diff > 10 || diff < 0;
+  }
+
   return (
     <div style={{ maxWidth: 420, paddingBottom: 40 }}>
+      {/* ไม่ใส่ capture="environment" แล้ว เพื่อให้กดแล้วเลือกได้ทั้งถ่ายรูปใหม่ หรือเลือกจากคลังรูปเดิม
+          ใส่ multiple ไว้ด้วย เพื่อเลือกได้หลายรูปพร้อมกันตอนเลือกจากคลังรูป (อัปทีละหลายใบ) */}
       <input
         type="file"
         accept="image/*"
@@ -405,11 +497,9 @@ export default function ExpenseTab() {
 
       {pendingSlip && (
         <div
-          onClick={() => !slipSubmitting && skipPendingSlip()}
           style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(58,42,24,0.45)", display: "flex", alignItems: "flex-end" }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
             style={{ width: "100%", maxHeight: "85vh", overflowY: "auto", background: "#fff", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20 }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
@@ -424,24 +514,35 @@ export default function ExpenseTab() {
               {pendingSlip.note ? `หมายเหตุที่อ่านได้: "${pendingSlip.note}"` : "ไม่มีหมายเหตุในสลิป"}
             </p>
 
-            <div style={{ backgroundColor: "#3A2A180D", borderRadius: 10, padding: "10px 12px", marginBottom: 14 }}>
-              <span style={{ fontSize: 11, color: "#3A2A1899" }}>ยอดรวมจากสลิป</span>
-              <div style={{ fontSize: 18, fontWeight: 700, color: "#3A2A18" }}>
-                {pendingSlip.amount != null ? formatRaw(pendingSlip.amount) : "อ่านไม่ได้"} บาท
-              </div>
-            </div>
+            <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>
+              ยอดรวมจากสลิป (บาท) {pendingSlip.amount == null && <span style={{ color: "#D62828" }}>— อ่านไม่ได้ กรอกเอง</span>}
+            </label>
+            <input
+              type="number"
+              inputMode="decimal"
+              value={slipAmount}
+              onChange={(e) => setSlipAmount(e.target.value)}
+              style={{ marginBottom: 12, width: "100%", boxSizing: "border-box", borderRadius: 8, border: "1px solid #E8792F26", padding: "10px 12px", fontSize: 16, fontWeight: 700 }}
+            />
 
             <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>วันที่ของรายการ</label>
             <input
               type="date"
               value={slipDate}
               onChange={(e) => setSlipDate(e.target.value)}
-              style={{
-                marginBottom: 12, display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
-                boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
-                border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
-              }}
+              style={{ ...dateInputStyle, marginBottom: 6 }}
             />
+            {slipDate && (
+              <p style={{ fontSize: 12, color: "#3A2A18", margin: "0 0 6px", fontWeight: 600 }}>
+                = {dayLabelTh(slipDate)}
+              </p>
+            )}
+            {pendingSlip.dateWarning && (
+              <p style={{ fontSize: 12, color: "#B45309", backgroundColor: "#FEF3C7", borderRadius: 8, padding: "8px 10px", margin: "0 0 12px" }}>
+                ⚠️ {pendingSlip.dateWarning}
+              </p>
+            )}
+            <div style={{ height: 6 }} />
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, padding: "10px 12px", borderRadius: 10, backgroundColor: "#E8792F14" }}>
               <span style={{ fontSize: 13, color: "#3A2A18", fontWeight: 600 }}>บิลนี้มีของปนกัน (ร้าน+ส่วนตัว)</span>
@@ -460,12 +561,14 @@ export default function ExpenseTab() {
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 10, backgroundColor: "#3A2A180D", marginBottom: 14, fontSize: 12, color: "#3A2A1899" }}>
                   <span>ส่วนที่เหลือ (ไม่นับเป็นรายจ่ายร้าน)</span>
-                  <span>{formatRaw(Math.max(0, (pendingSlip.amount ?? 0) - Number(slipStoreAmount || 0)))} บาท</span>
+                  <span>{formatRaw(Math.max(0, Number(slipAmount || 0) - Number(slipStoreAmount || 0)))} บาท</span>
                 </div>
               </>
             )}
 
-            <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 6 }}>หมวด</label>
+            <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 6 }}>
+              หมวด {!slipCategory && <span style={{ color: "#D62828" }}>— AI เดาไม่ได้ กรุณาเลือก</span>}
+            </label>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
               {CATEGORIES.map((c) => (
                 <button
@@ -481,6 +584,8 @@ export default function ExpenseTab() {
                 </button>
               ))}
             </div>
+
+            {message && <p style={{ fontSize: 13, color: "#D62828", margin: "0 0 10px" }}>{message}</p>}
 
             <button
               onClick={confirmPendingSlip}
@@ -508,11 +613,7 @@ export default function ExpenseTab() {
           type="date"
           value={manualDate}
           onChange={(e) => setManualDate(e.target.value)}
-          style={{
-            marginBottom: 10, display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
-            boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
-            border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "10px 12px", fontSize: 14
-          }}
+          style={{ ...dateInputStyle, marginBottom: 10 }}
         />
 
         <label style={{ fontSize: 12, color: "#3A2A1880", display: "block", marginBottom: 4 }}>
@@ -588,23 +689,20 @@ export default function ExpenseTab() {
       {message && <p style={{ fontSize: 13, color: "#D62828", marginBottom: 12 }}>{message}</p>}
 
       <div style={{ borderRadius: 16, border: "1px solid #0F6B3D26", backgroundColor: "#fff", padding: 16 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, color: "#3A2A18", margin: "0 0 10px" }}>🧾 รายการล่าสุด</h3>
+        <h3 style={{ fontSize: 14, fontWeight: 700, color: "#3A2A18", margin: "0 0 4px" }}>🧾 รายการล่าสุด</h3>
+        <p style={{ fontSize: 11, color: "#3A2A1873", margin: "0 0 10px" }}>เรียงตามที่เพิ่งบันทึกล่าสุดก่อน (แสดง {Math.min(40, (entries ?? []).length)} รายการ)</p>
 
         {loading && <p style={{ fontSize: 13, color: "#3A2A1866" }}>กำลังโหลด...</p>}
         {!loading && entries && entries.length === 0 && <p style={{ fontSize: 13, color: "#3A2A1866" }}>ยังไม่มีรายการ</p>}
 
-        {!loading && entries && entries.map((entry) => (
+        {!loading && entries && recentEntries.map((entry) => (
           <div key={entry.id} style={{ borderBottom: "1px solid #EFE9DA", padding: "10px 0" }}>
             {editingId === entry.id ? (
               <div>
                 <label style={{ fontSize: 11, color: "#3A2A1880", display: "block", marginBottom: 3 }}>วันที่</label>
                 <input
                   type="date" value={editDate} onChange={(e) => setEditDate(e.target.value)}
-                  style={{
-                    marginBottom: 6, display: "block", width: "100%", minWidth: 0, maxWidth: "100%",
-                    boxSizing: "border-box", borderRadius: 8, WebkitAppearance: "none", appearance: "none",
-                    border: "1px solid #E8792F26", backgroundColor: "#ffffff", padding: "8px 10px", fontSize: 13
-                  }}
+                  style={{ ...dateInputStyle, marginBottom: 6, padding: "8px 10px", fontSize: 13, height: 38 }}
                 />
                 <label style={{ fontSize: 11, color: "#3A2A1880", display: "block", marginBottom: 3 }}>จำนวนเงิน (บาท)</label>
                 <input
@@ -663,8 +761,13 @@ export default function ExpenseTab() {
                     {entry.category}{entry.source === "slip" ? " · 📷" : ""}
                   </p>
                   <p style={{ fontSize: 11, color: "#3A2A1873", margin: 0 }}>
-                    {dayLabelTh(entry.expense_date)}{entry.note ? ` · ${entry.note}` : ""}
+                    {dayLabelTh(entry.expense_date.slice(0, 10))}{entry.note ? ` · ${entry.note}` : ""}
                   </p>
+                  {isSuspicious(entry) && (
+                    <p style={{ fontSize: 11, color: "#B45309", fontWeight: 600, margin: "2px 0 0" }}>
+                      ⚠️ วันที่ดูแปลก (บันทึกเมื่อ {dayLabelTh(createdDayBangkok(entry.created_at))}) แตะเพื่อแก้
+                    </p>
+                  )}
                 </div>
                 <span style={{ fontSize: 14, fontWeight: 700, color: "#8B3A2B", flexShrink: 0 }}>
                   {formatRaw(Number(entry.amount))} บาท
